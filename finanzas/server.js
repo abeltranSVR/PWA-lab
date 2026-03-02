@@ -129,7 +129,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ── Archivos estáticos ─────────────────────────────────────────────────────
-  let filePath = path.join(ROOT, pathname === '/' ? 'finanzas.html' : pathname);
+  let filePath = path.join(ROOT, pathname === '/' ? 'index.html' : pathname);
   // Seguridad: no salir del ROOT
   if (!filePath.startsWith(ROOT)) {
     res.writeHead(403);

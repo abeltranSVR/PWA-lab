@@ -21,7 +21,7 @@ self.addEventListener('install', event => {
     caches.open(CACHE_SHELL)
       .then(cache => cache.addAll([
         SCOPE,
-        SCOPE + 'finanzas.html',
+        SCOPE + 'index.html',
         SCOPE + 'manifest.json',
       ]))
       .then(() => self.skipWaiting())

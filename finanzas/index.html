@@ -1938,6 +1938,18 @@ let UC_CORTES = [];
 let TC_NORM   = [];
 let CC_NORM   = [];
 
+// ── EFECTIVO (localStorage — movimientos manuales) ────────────────────────────
+const EF_KEY = 'finanzas_efectivo_v1';
+
+function efLoad() {
+  try { return JSON.parse(localStorage.getItem(EF_KEY) || '[]'); } catch(e) { return []; }
+}
+function efSave(movs) {
+  try { localStorage.setItem(EF_KEY, JSON.stringify(movs)); } catch(e) {}
+}
+
+let EF_MOVS = efLoad();
+
 
 function offsetDate(dateStr, days) {
   const d = new Date(dateStr + 'T00:00:00');
