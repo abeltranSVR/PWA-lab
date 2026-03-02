@@ -217,6 +217,7 @@ const dom = {
   btnReset: $('#btn-reset'),
   btnSkip: $('#btn-skip'),
   btnFinish: $('#btn-finish'),
+  timerControls: $('#timer-controls'),
   iconPlay: $('#icon-play'),
   iconPause: $('#icon-pause'),
   tagChips: $('#tag-chips'),
@@ -437,6 +438,7 @@ function setPhase(phase) {
 
   showPlayIcon(true);
   dom.btnFinish.style.display = 'none';
+  dom.timerControls.style.display = 'flex';
   renderTimer(state.durationMs / 1000, false, 0);
   updatePhaseUI();
 }
@@ -504,6 +506,7 @@ function stopTimer() {
   state.sessionStartTime = null;
 
   dom.btnFinish.style.display = 'none';
+  dom.timerControls.style.display = 'flex';
   document.body.classList.remove('state-overtime');
 }
 
@@ -523,20 +526,18 @@ function stopInterval() {
 /* --- Phase complete --- */
 
 function onPhaseComplete() {
-  // Vibrate
   if ('vibrate' in navigator) navigator.vibrate([200, 100, 400, 100, 200]);
 
   if (state.phase === 'work') {
-    // Notify and enter overtime (timer keeps running, counts up)
     sendNotification('🍅 ¡Pomodoro completado!', `${state.workMinutes} min de enfoque cumplidos.`);
-    // Timer continues — overtime display is handled by tick()
-    // User must press "Finalizar sesión"
   } else {
-    // Break done — notify, stop, advance to work, auto-start
     sendNotification('⏰ ¡Descanso terminado!', 'Es hora de volver al trabajo.');
-    setPhase('work');
-    startTimer();
   }
+
+  // Hide play/pause/reset/skip, show the action button
+  dom.timerControls.style.display = 'none';
+  dom.btnFinish.style.display = 'block';
+  dom.btnFinish.textContent = state.phase === 'work' ? '✓ Finalizar sesión' : '▶ Continuar';
 }
 
 /* --- Visibility recovery --- */
@@ -579,9 +580,12 @@ dom.btnReset.addEventListener('click', () => {
 });
 
 dom.btnSkip.addEventListener('click', () => {
-  stopTimer();
-
-  if (state.phase === 'work') {
+  if (state.phase === 'work' && state.sessionStartTime) {
+    // Work in progress — show completion modal to save partial session
+    showCompletionModal();
+  } else if (state.phase === 'work') {
+    // Work not started — just skip to break without recording
+    stopTimer();
     if (state.pomodoroCount >= 3) {
       state.pomodoroCount = 0;
       setPhase('long-break');
@@ -589,12 +593,21 @@ dom.btnSkip.addEventListener('click', () => {
       setPhase('short-break');
     }
   } else {
+    // Break — skip to work
+    stopTimer();
     setPhase('work');
   }
 });
 
 dom.btnFinish.addEventListener('click', () => {
-  showCompletionModal();
+  if (state.phase === 'work') {
+    // Work: show completion modal to save session
+    showCompletionModal();
+  } else {
+    // Break: just advance to next work phase
+    stopTimer();
+    setPhase('work');
+  }
 });
 
 

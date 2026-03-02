@@ -58,7 +58,13 @@
              placeholder="¿En qué vas a trabajar?" maxlength="140">
     </div>
 
-    <div class="timer-controls">
+    <!-- Finalizar/Continuar button (replaces controls during overtime) -->
+    <button class="btn-finish" id="btn-finish" style="display:none">
+      ✓ Finalizar sesión
+    </button>
+
+    <!-- Controls (hidden during overtime) -->
+    <div class="timer-controls" id="timer-controls">
       <button class="btn-control" id="btn-reset" aria-label="Reiniciar">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
       </button>
@@ -70,10 +76,6 @@
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20" fill="currentColor"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
       </button>
     </div>
-
-    <button class="btn-finish" id="btn-finish" style="display:none">
-      ✓ Finalizar sesión
-    </button>
   </main>
 
   <!-- ===== COMPLETION MODAL ===== -->

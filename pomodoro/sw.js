@@ -6,7 +6,7 @@
    Wake Lock keeping the screen on.
    ========================================================== */
 
-const CACHE_NAME = 'pomodoro-v8';
+const CACHE_NAME = 'pomodoro-v10';
 const PRECACHE_URLS = [
   './', './index.html', './styles.css', './app.js',
   './manifest.json', './icon-192.png', './icon-512.png'
