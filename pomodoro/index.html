@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#e8432a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Temporizador Pomodoro con registro de sesiones y estadísticas. Funciona offline.">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>Pomodoro Focus Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header class="app-header">
+    <h1>🍅 Pomodoro</h1>
+  </header>
+
+  <!-- ===== TIMER SCREEN ===== -->
+  <main id="screen-timer" class="screen timer-screen active">
+
+    <!-- Wake Lock status badge (visible when active) -->
+    <div class="wakelock-badge" id="wakelock-badge" style="display:none">
+      <span class="wakelock-dot"></span> Pantalla activa
+    </div>
+
+    <div class="phase-indicator" id="phase-indicator">
+      <div class="phase-dot current" data-index="0"></div>
+      <div class="phase-dot" data-index="1"></div>
+      <div class="phase-dot" data-index="2"></div>
+      <div class="phase-dot" data-index="3"></div>
+      <span class="phase-label" id="phase-label">Pomodoro 1/4</span>
+    </div>
+
+    <div class="timer-container">
+      <svg class="timer-ring" viewBox="0 0 248 248">
+        <circle class="timer-ring-bg" cx="124" cy="124" r="120" />
+        <circle class="timer-ring-progress" id="timer-progress" cx="124" cy="124" r="120" />
+      </svg>
+      <div class="timer-display">
+        <span class="timer-time" id="timer-time">25:00</span>
+        <span class="timer-phase-name" id="timer-phase-name">Trabajo</span>
+        <span class="timer-overtime" id="timer-overtime" style="display:none">+00:00</span>
+      </div>
+    </div>
+
+    <div class="tag-selector">
+      <label>Etiqueta</label>
+      <div class="tag-chips" id="tag-chips"></div>
+    </div>
+
+    <div class="session-desc-area">
+      <label for="session-desc">Descripción (opcional)</label>
+      <input type="text" id="session-desc" class="session-desc-input"
+             placeholder="¿En qué vas a trabajar?" maxlength="140">
+    </div>
+
+    <div class="timer-controls">
+      <button class="btn-control" id="btn-reset" aria-label="Reiniciar">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      </button>
+      <button class="btn-primary" id="btn-play" aria-label="Iniciar">
+        <svg id="icon-play" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,3 20,12 6,21"/></svg>
+        <svg id="icon-pause" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="5" y="3" width="4" height="18"/><rect x="15" y="3" width="4" height="18"/></svg>
+      </button>
+      <button class="btn-control" id="btn-skip" aria-label="Saltar">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20" fill="currentColor"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+      </button>
+    </div>
+
+    <button class="btn-finish" id="btn-finish" style="display:none">
+      ✓ Finalizar sesión
+    </button>
+  </main>
+
+  <!-- ===== COMPLETION MODAL ===== -->
+  <div class="modal-overlay" id="modal-complete">
+    <div class="modal-sheet">
+      <h2>🍅 ¡Pomodoro completado!</h2>
+      <div class="modal-field">
+        <label>Etiqueta</label>
+        <div class="modal-tags" id="modal-tags"></div>
+      </div>
+      <div class="modal-field">
+        <label for="modal-desc">Descripción</label>
+        <textarea id="modal-desc" rows="2" placeholder="¿Qué lograste?" maxlength="280"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-skip" id="modal-skip">Omitir</button>
+        <button class="btn-save" id="modal-save">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== HISTORY SCREEN ===== -->
+  <section id="screen-history" class="screen">
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-today">0</div>
+        <div class="stat-label">Hoy</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-streak">0</div>
+        <div class="stat-label">Racha días</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-hours">0</div>
+        <div class="stat-label">Hrs. total</div>
+      </div>
+    </div>
+    <div class="chart-section">
+      <h3>Esta semana</h3>
+      <div class="chart-container"><canvas id="weekly-chart"></canvas></div>
+    </div>
+    <div class="history-header">
+      <input type="date" id="filter-date" aria-label="Filtrar por fecha">
+      <select id="filter-tag" aria-label="Filtrar por etiqueta"><option value="">Todas</option></select>
+      <button class="btn-export" id="btn-export">CSV ↓</button>
+    </div>
+    <details class="history-tag-manager">
+      <summary class="tag-manager-toggle">Administrar etiquetas</summary>
+      <div class="tag-manager-content">
+        <div class="tag-manage-list" id="history-tag-list"></div>
+        <div class="add-tag-row">
+          <input type="text" id="history-new-tag" placeholder="Nueva etiqueta..." maxlength="24">
+          <button id="history-add-tag">Añadir</button>
+        </div>
+      </div>
+    </details>
+    <div class="session-list" id="session-list"></div>
+  </section>
+
+  <!-- ===== COUNTERS SCREEN ===== -->
+  <section id="screen-counters" class="screen">
+    <div class="counters-header">
+      <h3>Contadores</h3>
+    </div>
+    <div class="add-counter-row">
+      <input type="text" id="new-counter-name" placeholder="Nombre del contador..." maxlength="40">
+      <button class="btn-new-counter" id="btn-new-counter">+ Crear</button>
+    </div>
+    <div id="counter-list"></div>
+  </section>
+
+  <!-- ===== SETTINGS SCREEN ===== -->
+  <section id="screen-settings" class="screen">
+    <div class="settings-group">
+      <h3>Temporizador</h3>
+      <div class="setting-row">
+        <span class="setting-label">Trabajo</span>
+        <div class="setting-value">
+          <input type="number" id="set-work" min="1" max="120" value="25">
+          <span class="setting-unit">min</span>
+        </div>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">Descanso corto</span>
+        <div class="setting-value">
+          <input type="number" id="set-short" min="1" max="30" value="5">
+          <span class="setting-unit">min</span>
+        </div>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">Descanso largo</span>
+        <div class="setting-value">
+          <input type="number" id="set-long" min="1" max="60" value="15">
+          <span class="setting-unit">min</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Wake Lock toggle -->
+    <div class="settings-group">
+      <h3>Pantalla</h3>
+      <div class="setting-row">
+        <div>
+          <span class="setting-label">Mantener pantalla encendida</span>
+          <span class="setting-hint">Evita que se bloquee durante el timer</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="set-wakelock" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <h3>Etiquetas</h3>
+      <div class="tag-manage-list" id="tag-manage-list"></div>
+      <div class="add-tag-row">
+        <input type="text" id="new-tag-input" placeholder="Nueva etiqueta..." maxlength="24">
+        <button id="btn-add-tag">Añadir</button>
+      </div>
+    </div>
+
+    <div class="app-version">v4.2.0</div>
+  </section>
+
+  <!-- ===== EDIT TAG MODAL (for history items) ===== -->
+  <div class="modal-overlay" id="modal-edit-tag">
+    <div class="modal-sheet">
+      <h2>Cambiar etiqueta</h2>
+      <div class="modal-field">
+        <label>Selecciona una etiqueta</label>
+        <div class="modal-tags" id="edit-tag-chips"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-skip" id="edit-tag-cancel">Cancelar</button>
+        <button class="btn-save" id="edit-tag-save">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== COUNTER DELTA MODAL ===== -->
+  <div class="modal-overlay" id="modal-counter-delta">
+    <div class="modal-sheet">
+      <h2 id="counter-delta-title">Agregar valor</h2>
+      <div class="modal-field">
+        <label for="counter-delta-amount">Cantidad</label>
+        <input type="number" id="counter-delta-amount" value="1" step="any">
+      </div>
+      <div class="modal-field">
+        <label for="counter-delta-note">Nota (opcional)</label>
+        <input type="text" id="counter-delta-note" placeholder="Descripción breve..." maxlength="100">
+      </div>
+      <div class="modal-actions">
+        <button class="btn-skip" id="counter-delta-cancel">Cancelar</button>
+        <button class="btn-save" id="counter-delta-ok">Aplicar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== COUNTER RENAME MODAL ===== -->
+  <div class="modal-overlay" id="modal-counter-rename">
+    <div class="modal-sheet">
+      <h2>Renombrar contador</h2>
+      <div class="modal-field">
+        <label for="counter-rename-input">Nombre</label>
+        <input type="text" id="counter-rename-input" maxlength="40">
+      </div>
+      <div class="modal-actions">
+        <button class="btn-skip" id="counter-rename-cancel">Cancelar</button>
+        <button class="btn-save" id="counter-rename-ok">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-screen="screen-timer">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Timer
+    </button>
+    <button class="nav-item" data-screen="screen-history">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 16 4-8 4 4 4-6"/></svg>
+      Historial
+    </button>
+    <button class="nav-item" data-screen="screen-counters">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+      Contadores
+    </button>
+    <button class="nav-item" data-screen="screen-settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.32 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Config
+    </button>
+  </nav>
+
+  <script src="app.js"></script>
+</body>
+</html>
