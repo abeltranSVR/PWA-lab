@@ -12,18 +12,18 @@ const CACHE_VERSION  = 'finanzas-v1';
 const CACHE_SHELL    = `${CACHE_VERSION}-shell`;
 const CACHE_DATA     = `${CACHE_VERSION}-data`;
 
-const SHELL_URLS = [
-  '/',
-  '/finanzas.html',
-  '/manifest.json',
-  // Fuentes de Google (se cachean dinámicamente en el primer fetch)
-];
+// Rutas relativas al scope del SW (funciona en cualquier subdirectorio)
+const SCOPE = self.registration.scope; // ej: https://user.github.io/finanzas/
 
-// ── Install: pre-cachear el shell ─────────────────────────────────────────────
+// ── Install: pre-cachear el shell con rutas relativas al scope ───────────────
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_SHELL)
-      .then(cache => cache.addAll(SHELL_URLS))
+      .then(cache => cache.addAll([
+        SCOPE,
+        SCOPE + 'finanzas.html',
+        SCOPE + 'manifest.json',
+      ]))
       .then(() => self.skipWaiting())
   );
 });
@@ -53,7 +53,7 @@ self.addEventListener('fetch', event => {
   }
 
   // GET /api/data → Network First con fallback a cache
-  if (url.pathname === '/api/data') {
+  if (url.pathname.endsWith('/api/data')) {
     event.respondWith(networkFirstData(request));
     return;
   }

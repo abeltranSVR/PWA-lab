@@ -1,0 +1,38 @@
+# ── Datos personales (cualquier subcarpeta) ───────────────────────────────────
+*-data.json
+*-data-*.json
+*.backup-*.json
+*-privado.json
+*-personal.json
+*-config.json
+
+# ── Finanzas específico ───────────────────────────────────────────────────────
+finanzas-data.json
+finanzas-data.backup-*.json
+
+# ── Sistema operativo ─────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# ── Node.js ───────────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.env
+.env.local
+.env*.local
+
+# ── Editores ──────────────────────────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
