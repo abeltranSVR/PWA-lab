@@ -14,7 +14,6 @@
 const http     = require('http');
 const fs       = require('fs');
 const path     = require('path');
-const url      = require('url');
 
 // ── Configuración ──────────────────────────────────────────────────────────────
 const PORT      = process.argv.includes('--port')
@@ -57,8 +56,7 @@ function readBody(req) {
 
 // ── Servidor ──────────────────────────────────────────────────────────────────
 const server = http.createServer(async (req, res) => {
-  const parsed   = url.parse(req.url);
-  const pathname = parsed.pathname;
+  const { pathname } = new URL(req.url, 'http://localhost');
 
   setCORS(res);
 
@@ -84,14 +82,16 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/data') {
 
     if (req.method === 'GET') {
-      if (!fs.existsSync(DATA_FILE)) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'finanzas-data.json no encontrado' }));
-        return;
-      }
-      const data = fs.readFileSync(DATA_FILE, 'utf-8');
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(data);
+      fs.readFile(DATA_FILE, 'utf-8', (err, data) => {
+        if (err) {
+          const status = err.code === 'ENOENT' ? 404 : 500;
+          res.writeHead(status, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.code === 'ENOENT' ? 'finanzas-data.json no encontrado' : err.message }));
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(data);
+      });
       return;
     }
 
@@ -131,7 +131,7 @@ const server = http.createServer(async (req, res) => {
   // ── Archivos estáticos ─────────────────────────────────────────────────────
   let filePath = path.join(ROOT, pathname === '/' ? 'index.html' : pathname);
   // Seguridad: no salir del ROOT
-  if (!filePath.startsWith(ROOT)) {
+  if (!filePath.startsWith(ROOT + path.sep) && filePath !== ROOT) {
     res.writeHead(403);
     res.end('Forbidden');
     return;

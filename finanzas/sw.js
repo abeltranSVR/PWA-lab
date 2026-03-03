@@ -23,6 +23,14 @@ self.addEventListener('install', event => {
         SCOPE,
         SCOPE + 'index.html',
         SCOPE + 'manifest.json',
+        SCOPE + 'styles/main.css',
+        SCOPE + 'js/db.js',
+        SCOPE + 'js/data.js',
+        SCOPE + 'js/views/tarjetas.js',
+        SCOPE + 'js/views/deudas.js',
+        SCOPE + 'js/views/efectivo.js',
+        SCOPE + 'js/views/resumen.js',
+        SCOPE + 'js/app.js',
       ]))
       .then(() => self.skipWaiting())
   );
@@ -99,7 +107,7 @@ async function networkFirstData(request) {
 }
 
 async function cacheFirst(request, cacheName) {
-  const cached = await caches.match(request);
+  const cached = await caches.match(request, { cacheName });
   if (cached) return cached;
   try {
     const response = await fetch(request);
@@ -121,7 +129,7 @@ self.addEventListener('message', event => {
 
   if (event.data === 'CLEAR_CACHE') {
     caches.delete(CACHE_SHELL).then(() => {
-      event.ports[0].postMessage({ ok: true });
+      if (event.ports[0]) event.ports[0].postMessage({ ok: true });
     });
   }
 });
