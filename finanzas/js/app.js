@@ -56,6 +56,11 @@ document.getElementById('main-nav').addEventListener('click', e => {
   if (item) switchView(item.dataset.view);
 });
 
+document.getElementById('nav-add-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  cmOpen();
+});
+
 // ── Service Worker ────────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
