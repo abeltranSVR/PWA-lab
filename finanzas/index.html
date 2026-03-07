@@ -32,6 +32,9 @@
 <!-- Toast de notificaciones -->
 <div id="toast"></div>
 
+<!-- FABs -->
+<div id="fab-group"></div>
+
 <!-- Banner de instalación PWA -->
 <div id="install-banner">
   <div class="install-text">
@@ -217,11 +220,7 @@
     <div><div class="header-title">Gastos Fijos</div></div>
   </header>
   <!-- Selector de período -->
-  <div class="gf-period-bar">
-    <button class="gf-period-arrow" id="gf-prev-btn" onclick="gfChangePeriodo(-1)">&#8592;</button>
-    <div class="gf-period-label" id="header-date-fijos">—</div>
-    <button class="gf-period-arrow" id="gf-next-btn" onclick="gfChangePeriodo(+1)">&#8594;</button>
-  </div>
+  <div style="margin:0 16px 8px;display:flex;flex-wrap:nowrap;gap:0;overflow-x:auto;" id="gf-period-tabs"></div>
 
   <!-- Resumen top -->
   <div class="gf-summary-card" id="gf-summary-card">
@@ -280,12 +279,430 @@
       <svg id="ef-sort-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="3"/><path d="M17 17l-3.5-3.5"/><path d="M3 3h18v4H3z"/><path d="M3 10h10"/><path d="M3 14h7"/><path d="M3 18h4"/></svg>
       <span id="ef-sort-label">Categoría</span>
     </button>
+    <button onclick="cortesOpen()" style="display:flex;align-items:center;padding:7px 9px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-muted);cursor:pointer;" title="Editar cortes de período">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    </button>
   </div>
 
   <!-- Movements container -->
   <div id="ef-movimientos-container"></div>
 
   </div><!-- /view-efectivo -->
+
+  <!-- CORTES MODAL -->
+  <div id="cortes-overlay" style="display:none;position:fixed;inset:0;background:rgba(20,20,16,0.55);z-index:300;backdrop-filter:blur(4px);">
+    <div style="position:absolute;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;background:var(--bg-card);border-radius:20px 20px 0 0;border-top:1px solid var(--border);padding:24px 20px 40px;max-height:85vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <span style="font-family:'DM Serif Display',serif;font-size:18px;">Cortes de período</span>
+        <button id="cortes-close" style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <p style="font-size:12px;color:var(--text-muted);margin:0 0 16px;">Cada corte define el inicio de un período de facturación TC. El campo <b>Período</b> es el ID (ej: <code>202604</code>) y la <b>Fecha de corte</b> es el día desde el que comienza ese período.</p>
+      <div id="cortes-list"></div>
+      <button onclick="cortesAddRow()" style="width:100%;margin-top:12px;padding:10px;background:none;border:1px dashed var(--border);border-radius:10px;color:var(--accent);font-size:13px;cursor:pointer;">+ Agregar período</button>
+      <button id="cortes-submit" style="width:100%;margin-top:12px;padding:12px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-size:15px;font-weight:600;cursor:pointer;">Guardar</button>
+    </div>
+  </div>
+
+  <!-- SEARCH MODAL -->
+  <div id="sr-overlay" style="display:none;position:fixed;inset:0;background:rgba(20,20,16,0.55);z-index:300;backdrop-filter:blur(4px);">
+    <div style="position:absolute;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;background:var(--bg-card);border-radius:20px 20px 0 0;border-top:1px solid var(--border);height:90vh;display:flex;flex-direction:column;">
+
+      <!-- Header -->
+      <div style="padding:20px 20px 0;flex-shrink:0;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <span style="font-family:'DM Serif Display',serif;font-size:18px;">Buscar</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button id="sr-sort-toggle" style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;padding:0 10px;height:32px;cursor:pointer;font-size:11px;font-family:var(--font-mono);color:var(--text-secondary);">Fecha</button>
+            <button id="sr-filter-btn" style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;padding:0 10px;height:32px;cursor:pointer;font-size:11px;font-family:var(--font-mono);color:var(--text-secondary);">Filtros</button>
+            <button id="sr-close" style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+        <!-- Search input -->
+        <div style="position:relative;margin-bottom:14px;">
+          <input id="sr-search" type="text" placeholder="Nombre, categoría, origen…" style="width:100%;box-sizing:border-box;padding:9px 36px 9px 12px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:10px;color:var(--text-primary);font-size:13px;font-family:inherit;outline:none;">
+          <button id="sr-search-clear" style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;line-height:1;">×</button>
+        </div>
+      </div>
+
+      <!-- Main panel -->
+      <div id="sr-main" style="flex:1;overflow-y:auto;padding:0 20px 16px;">
+        <div id="sr-results"></div>
+      </div>
+
+      <!-- Pie confirmar (solo en modo selección) -->
+      <div id="sr-confirm-bar" style="display:none;flex-shrink:0;padding:12px 20px;border-top:1px solid var(--border);background:var(--bg-card);">
+        <button id="sr-confirm-btn" class="cm-submit-btn" style="margin:0;">Confirmar</button>
+      </div>
+
+      <!-- Filter panel (oculto por defecto) -->
+      <div id="sr-filter-panel" style="display:none;flex:1;overflow-y:auto;padding:0 20px 100px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;padding-top:4px;">
+          <button id="sr-filter-back" style="background:none;border:none;color:var(--text-secondary);font-size:11px;font-family:var(--font-mono);cursor:pointer;padding:4px 0;">← Volver</button>
+          <button id="sr-filter-clear-all" style="margin-left:auto;background:none;border:none;color:var(--text-secondary);font-size:11px;font-family:var(--font-mono);cursor:pointer;">Limpiar todo</button>
+        </div>
+        <!-- Fechas -->
+        <div style="margin-bottom:20px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div class="cupo-label">Rango de fechas</div>
+            <button id="sr-filter-clear-dates" style="background:none;border:none;color:var(--text-secondary);font-size:11px;font-family:var(--font-mono);cursor:pointer;">Limpiar</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div>
+              <div style="font-size:10px;color:var(--text-secondary);margin-bottom:4px;">Desde</div>
+              <input type="date" id="sr-filter-desde" style="width:100%;box-sizing:border-box;padding:8px 10px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:12px;font-family:inherit;outline:none;">
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--text-secondary);margin-bottom:4px;">Hasta</div>
+              <input type="date" id="sr-filter-hasta" style="width:100%;box-sizing:border-box;padding:8px 10px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:12px;font-family:inherit;outline:none;">
+            </div>
+          </div>
+        </div>
+        <!-- Categorías -->
+        <div style="margin-bottom:20px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div class="cupo-label">Categorías</div>
+            <button id="sr-filter-clear-cats" style="background:none;border:none;color:var(--text-secondary);font-size:11px;font-family:var(--font-mono);cursor:pointer;">Limpiar</button>
+          </div>
+          <div id="sr-filter-cats" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+        </div>
+        <!-- Origen -->
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div class="cupo-label">Origen</div>
+            <button id="sr-filter-clear-origins" style="background:none;border:none;color:var(--text-secondary);font-size:11px;font-family:var(--font-mono);cursor:pointer;">Limpiar</button>
+          </div>
+          <div id="sr-filter-origins" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CREATE MOVEMENT MODAL -->
+  <div id="cm-overlay" style="display:none;position:fixed;inset:0;background:rgba(20,20,16,0.55);z-index:300;backdrop-filter:blur(4px);">
+    <div style="position:absolute;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;background:var(--bg-card);border-radius:20px 20px 0 0;border-top:1px solid var(--border);padding:24px 20px 40px;max-height:90vh;overflow-y:auto;">
+
+      <!-- Header -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <span style="font-family:'DM Serif Display',serif;font-size:18px;">Nuevo movimiento</span>
+        <button id="cm-close" style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <!-- Destino -->
+      <div style="margin-bottom:20px;">
+        <div class="cupo-label" style="margin-bottom:8px;">Destino</div>
+        <div class="cm-toggle-group">
+          <button id="cm-dest-cc" class="cm-toggle active">CC</button>
+          <button id="cm-dest-tc" class="cm-toggle">TC</button>
+        </div>
+      </div>
+
+      <!-- ID (no editable) -->
+      <div id="cm-id-row" style="display:none;margin-bottom:10px;">
+        <div class="cupo-label" style="margin-bottom:4px;">ID</div>
+        <div id="cm-id-display" class="cm-id-display"></div>
+      </div>
+
+      <!-- Nombre original -->
+      <div style="margin-bottom:10px;">
+        <div class="cupo-label" style="margin-bottom:6px;">Nombre original</div>
+        <input id="cm-nombre-original" type="text" placeholder="Nombre del banco / fuente" class="cm-input" autocomplete="off">
+      </div>
+
+      <!-- Nombre descriptivo -->
+      <div style="margin-bottom:14px;">
+        <div class="cupo-label" style="margin-bottom:6px;">Nombre descriptivo</div>
+        <div style="position:relative;">
+          <input id="cm-nombre" type="text" placeholder="Ej: Reembolso Psicóloga" class="cm-input" autocomplete="off">
+          <div id="cm-nombre-suggestions" class="cm-suggestions"></div>
+        </div>
+      </div>
+
+      <!-- Categoría -->
+      <div style="margin-bottom:20px;">
+        <div class="cupo-label" style="margin-bottom:6px;">Categoría</div>
+        <select id="cm-categoria" class="cm-input">
+          <option value="">— Elige categoría —</option>
+          <optgroup label="Egresos">
+            <option>Comida Hormiga</option>
+            <option>Alimentación Mensual</option>
+            <option>Transporte</option>
+            <option>Salud</option>
+            <option>Servicios y Cuentas</option>
+            <option>Bienes</option>
+            <option>Entretención</option>
+            <option>Pareja</option>
+            <option>Cuidado Personal</option>
+            <option>Hogar</option>
+            <option>Deudas y Comisiones</option>
+            <option>Pendiente de Reembolso</option>
+            <option>Por Clasificar</option>
+          </optgroup>
+          <optgroup label="Neutro">
+            <option>Pagos TC</option>
+            <option>Préstamos Personales</option>
+          </optgroup>
+          <optgroup label="Ingresos">
+            <option>Sueldo</option>
+            <option>Ingresos Extra</option>
+            <option>Reembolso Recibido</option>
+          </optgroup>
+        </select>
+      </div>
+
+      <!-- Campos CC -->
+      <div id="cm-fields-cc">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+          <div>
+            <div class="cupo-label" style="margin-bottom:6px;">Fecha</div>
+            <input id="cm-fecha-cc" type="date" class="cm-input">
+          </div>
+          <div>
+            <div class="cupo-label" style="margin-bottom:6px;">Monto</div>
+            <input id="cm-monto" type="number" min="0" placeholder="0" class="cm-input">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+          <div>
+            <div class="cupo-label" style="margin-bottom:6px;">Período</div>
+            <input id="cm-periodo-cc" type="text" placeholder="202603" maxlength="6" class="cm-input">
+          </div>
+          <div>
+            <div class="cupo-label" style="margin-bottom:6px;">Tipo</div>
+            <div class="cm-toggle-group" style="margin-top:0;">
+              <button id="cm-tipo-cargo" class="cm-toggle active">Cargo</button>
+              <button id="cm-tipo-abono" class="cm-toggle">Abono</button>
+            </div>
+          </div>
+        </div>
+        <div style="margin-bottom:20px;">
+          <div class="cupo-label" style="margin-bottom:6px;">Medio de pago</div>
+          <select id="cm-medio-cc" class="cm-input">
+            <option>Cuenta Corriente Banco de Chile</option>
+            <option>Cuenta Corriente Santander</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Campos TC -->
+      <div id="cm-fields-tc" style="display:none;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+          <div>
+            <div class="cupo-label" style="margin-bottom:6px;">Fecha transacción</div>
+            <input id="cm-fecha-tc" type="date" class="cm-input">
+          </div>
+          <div>
+            <div class="cupo-label" style="margin-bottom:6px;">Valor cuota</div>
+            <input id="cm-valor-cuota" type="number" min="0" placeholder="0" class="cm-input">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
+          <div>
+            <div class="cupo-label" style="margin-bottom:6px;">Cuota</div>
+            <input id="cm-cuota-actual" type="number" min="1" value="1" class="cm-input">
+          </div>
+          <div>
+            <div class="cupo-label" style="margin-bottom:6px;">De</div>
+            <input id="cm-cuotas-total" type="number" min="1" value="1" class="cm-input">
+          </div>
+          <div>
+            <div class="cupo-label" style="margin-bottom:6px;">Período</div>
+            <input id="cm-periodo-tc" type="text" placeholder="202603" maxlength="6" class="cm-input">
+          </div>
+        </div>
+        <div style="margin-bottom:14px;">
+          <div class="cupo-label" style="margin-bottom:6px;">Medio de pago</div>
+          <select id="cm-medio-tc" class="cm-input">
+            <option>TC Banco de Chile</option>
+            <option>TC Santander</option>
+          </select>
+        </div>
+        <!-- Reembolso -->
+        <div style="margin-bottom:20px;">
+          <label class="cm-check-row">
+            <input type="checkbox" id="cm-pendiente-reembolso" onchange="document.getElementById('cm-reembolso-monto-row').style.display=this.checked?'':'none'">
+            <span class="cupo-label" style="margin:0;">Pendiente de reembolso</span>
+          </label>
+          <div id="cm-reembolso-monto-row" style="display:none;margin-top:8px;">
+            <div class="cupo-label" style="margin-bottom:6px;">Monto esperado reembolso</div>
+            <input id="cm-monto-reembolso" type="number" min="0" placeholder="0" class="cm-input">
+          </div>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <button id="cm-submit" class="cm-submit-btn">Crear movimiento</button>
+
+    </div>
+  </div>
+
+  <!-- EDIT MOVEMENT MODAL -->
+  <div id="em-overlay" style="display:none;position:fixed;inset:0;background:rgba(20,20,16,0.55);z-index:300;backdrop-filter:blur(4px);">
+    <div style="position:absolute;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;background:var(--bg-card);border-radius:20px 20px 0 0;border-top:1px solid var(--border);padding:24px 20px 40px;max-height:90vh;overflow-y:auto;">
+
+      <!-- Header -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <span style="font-family:'DM Serif Display',serif;font-size:18px;">Editar movimiento</span>
+        <button id="em-close" style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <!-- Destino (solo informativo, deshabilitado) -->
+      <div style="margin-bottom:20px;">
+        <div class="cupo-label" style="margin-bottom:8px;">Tipo</div>
+        <div class="cm-toggle-group" style="opacity:.5;pointer-events:none;">
+          <button id="em-dest-cc" class="cm-toggle active">CC / EF</button>
+          <button id="em-dest-tc" class="cm-toggle">TC</button>
+        </div>
+      </div>
+
+      <!-- ID (no editable) -->
+      <div style="margin-bottom:10px;">
+        <div class="cupo-label" style="margin-bottom:4px;">ID</div>
+        <div id="em-id-display" class="cm-id-display"></div>
+      </div>
+
+      <!-- Nombre original -->
+      <div style="margin-bottom:10px;">
+        <div class="cupo-label" style="margin-bottom:6px;">Nombre original</div>
+        <input id="em-nombre-original" type="text" class="cm-input" autocomplete="off">
+      </div>
+
+      <!-- Nombre descriptivo -->
+      <div style="margin-bottom:14px;">
+        <div class="cupo-label" style="margin-bottom:6px;">Nombre descriptivo</div>
+        <input id="em-nombre" type="text" class="cm-input" autocomplete="off">
+      </div>
+
+      <!-- Categoría -->
+      <div style="margin-bottom:20px;">
+        <div class="cupo-label" style="margin-bottom:6px;">Categoría</div>
+        <select id="em-categoria" class="cm-input">
+          <option value="">— Elige categoría —</option>
+          <optgroup label="Egresos">
+            <option>Comida Hormiga</option>
+            <option>Alimentación Mensual</option>
+            <option>Transporte</option>
+            <option>Salud</option>
+            <option>Servicios y Cuentas</option>
+            <option>Bienes</option>
+            <option>Entretención</option>
+            <option>Pareja</option>
+            <option>Cuidado Personal</option>
+            <option>Hogar</option>
+            <option>Deudas y Comisiones</option>
+            <option>Pendiente de Reembolso</option>
+            <option>Por Clasificar</option>
+          </optgroup>
+          <optgroup label="Neutro">
+            <option>Pagos TC</option>
+            <option>Préstamos Personales</option>
+          </optgroup>
+          <optgroup label="Ingresos">
+            <option>Sueldo</option>
+            <option>Ingresos Extra</option>
+            <option>Reembolso Recibido</option>
+          </optgroup>
+        </select>
+      </div>
+
+      <!-- Campos CC / EF -->
+      <div id="em-fields-cc">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+          <div>
+            <div class="cupo-label" style="margin-bottom:6px;">Fecha</div>
+            <input id="em-fecha-cc" type="date" class="cm-input">
+          </div>
+          <div>
+            <div class="cupo-label" style="margin-bottom:6px;">Monto</div>
+            <input id="em-monto" type="number" min="0" placeholder="0" class="cm-input">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+          <div>
+            <div class="cupo-label" style="margin-bottom:6px;">Período</div>
+            <input id="em-periodo-cc" type="text" placeholder="202603" maxlength="6" class="cm-input">
+          </div>
+          <div>
+            <div class="cupo-label" style="margin-bottom:6px;">Tipo</div>
+            <div class="cm-toggle-group" style="margin-top:0;">
+              <button id="em-tipo-cargo" class="cm-toggle active">Cargo</button>
+              <button id="em-tipo-abono" class="cm-toggle">Abono</button>
+            </div>
+          </div>
+        </div>
+        <div style="margin-bottom:20px;">
+          <div class="cupo-label" style="margin-bottom:6px;">Medio de pago</div>
+          <select id="em-medio-cc" class="cm-input">
+            <option>Cuenta Corriente Banco de Chile</option>
+            <option>Cuenta Corriente Santander</option>
+            <option>Efectivo</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Campos TC -->
+      <div id="em-fields-tc" style="display:none;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+          <div>
+            <div class="cupo-label" style="margin-bottom:6px;">Fecha transacción</div>
+            <input id="em-fecha-tc" type="date" class="cm-input">
+          </div>
+          <div>
+            <div class="cupo-label" style="margin-bottom:6px;">Valor cuota</div>
+            <input id="em-valor-cuota" type="number" min="0" placeholder="0" class="cm-input">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
+          <div>
+            <div class="cupo-label" style="margin-bottom:6px;">Cuota</div>
+            <input id="em-cuota-actual" type="number" min="1" value="1" class="cm-input">
+          </div>
+          <div>
+            <div class="cupo-label" style="margin-bottom:6px;">De</div>
+            <input id="em-cuotas-total" type="number" min="1" value="1" class="cm-input">
+          </div>
+          <div>
+            <div class="cupo-label" style="margin-bottom:6px;">Período</div>
+            <input id="em-periodo-tc" type="text" placeholder="202603" maxlength="6" class="cm-input">
+          </div>
+        </div>
+        <div style="margin-bottom:14px;">
+          <div class="cupo-label" style="margin-bottom:6px;">Medio de pago</div>
+          <select id="em-medio-tc" class="cm-input">
+            <option>TC Banco de Chile</option>
+            <option>TC Santander</option>
+          </select>
+        </div>
+        <!-- Reembolso -->
+        <div style="margin-bottom:20px;">
+          <label class="cm-check-row">
+            <input type="checkbox" id="em-pendiente-reembolso" onchange="document.getElementById('em-reembolso-monto-row').style.display=this.checked?'':'none'">
+            <span class="cupo-label" style="margin:0;">Pendiente de reembolso</span>
+          </label>
+          <div id="em-reembolso-monto-row" style="display:none;margin-top:8px;">
+            <div class="cupo-label" style="margin-bottom:6px;">Monto esperado reembolso</div>
+            <input id="em-monto-reembolso" type="number" min="0" placeholder="0" class="cm-input">
+          </div>
+          <label class="cm-check-row" style="margin-top:10px;">
+            <input type="checkbox" id="em-reembolsado">
+            <span class="cupo-label" style="margin:0;">Ya reembolsado</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <button id="em-submit" class="cm-submit-btn">Guardar cambios</button>
+
+    </div>
+  </div>
 
   <!-- FILTER MODAL -->
   <div id="ef-filter-overlay" style="display:none;position:fixed;inset:0;background:rgba(20,20,16,0.55);z-index:300;backdrop-filter:blur(4px);">
@@ -371,6 +788,9 @@
     </div>
     <span class="nav-label">Movimientos</span>
   </div>
+  <button class="nav-add-btn" onclick="cmOpen()" title="Nuevo movimiento">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
   <div class="nav-item" data-view="deudas">
     <div class="nav-icon">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8888a0" stroke-width="1.5">
@@ -409,6 +829,10 @@
 <script src="js/views/efectivo.js"></script>
 <script src="js/views/resumen.js"></script>
 <script src="js/views/fijos.js"></script>
+<script src="js/views/search.js"></script>
+<script src="js/views/create-movement.js"></script>
+<script src="js/views/edit-movement.js"></script>
+<script src="js/views/cortes.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

@@ -8,8 +8,8 @@ function fmtClpGF(n) {
   return '$' + Math.round(n).toLocaleString('es-CL');
 }
 
-// Índice del período activo en gastos fijos (empieza en el último)
-let gfPeriodoIdx  = UC_CORTES.length - 1;
+// Índice del período activo en gastos fijos (null = inicializar al último cuando UC_CORTES esté listo)
+let gfPeriodoIdx  = null;
 let gfAsignaciones = {};
 let gfTodosMovs   = [];
 let gfTodosMovsGlobal = [];
@@ -34,18 +34,20 @@ const GASTOS_FIJOS = [
   { id: 'gf-06', nombre: 'Deuda FSCU',           categoria: 'Deudas',                 obligatorio: true,  monto: 163126,  icono: '🏦',
     match: ['Deuda Universidad Decreto 8565 - Cuota 3/3 (última)'] },
   { id: 'gf-07', nombre: 'Claude AI',            categoria: 'Servicios y Transporte', obligatorio: true,  monto: null,    icono: '🤖',
-    match: ['Claude'] },
-  { id: 'gf-08', nombre: 'Coursera',             categoria: 'Servicios y Transporte', obligatorio: true,  monto: 9990,    icono: '🎓',
-    match: ['Coursera'] },
-  { id: 'gf-09', nombre: 'Netflix',              categoria: 'Entretenimiento',        obligatorio: true,  monto: 4190,    icono: '🎬',
-    match: ['Netflix'] },
-  { id: 'gf-10', nombre: 'Spotify',              categoria: 'Entretenimiento',        obligatorio: true,  monto: 4190,    icono: '🎧',
-    match: ['Spotify'] },
-  { id: 'gf-11', nombre: 'Amazon Prime',         categoria: 'Servicios y Transporte', obligatorio: true,  monto: 2990,    icono: '📦',
-    match: ['Amazon Prime'] },
-  { id: 'gf-12', nombre: 'Gastos Vida',          categoria: 'Hogar',                  obligatorio: true,  monto: 150000,  icono: '🏠',
-    match: ['Gastos Vida'] },
-  { id: 'gf-13', nombre: 'YouTube Premium',      categoria: 'Entretenimiento',        obligatorio: true,  monto: 6290,    icono: '🎥',
+    match: ['Comisión Compra Internacional', 'Pago TC Internacional'] },
+  { id: 'gf-08', nombre: 'Deuda BCH',            categoria: 'Deudas',                 obligatorio: true,  monto: 298793,  icono: '🏦',
+    match: ['Crédito Consumo BCH Cuota 6', 'Crédito Consumo BCH Cuota 7', 'Crédito Consumo BCH Cuota 8'] },
+  { id: 'gf-09', nombre: 'Supermercado',         categoria: 'Alimentación',           obligatorio: true,  monto: 200000,  icono: '🛒',
+    match: ['Jumbo Oneclick - Supermercado', 'Granja Magdalena', 'Salmón y Alimentos - Marketplace',
+            'Unimarc Escuela Militar', 'Unimarc Escuela Militar - Alimentos', 'Santa Isabel Pajaritos',
+            'Express Isabel La Católica'] },
+  { id: 'gf-10', nombre: 'Ahorro Bancoestado',   categoria: 'Ahorro',                 obligatorio: false, monto: 50000,   icono: '💰',
+    match: [] },
+  { id: 'gf-11', nombre: 'Psicóloga',            categoria: 'Salud',                  obligatorio: true,  monto: 80000,   icono: '🧠',
+    match: ['Psicóloga Paulina Diciembre', 'Psicóloga Paulina Enero', 'Psicóloga Paulina*'] },
+  { id: 'gf-12', nombre: 'Team running UC',      categoria: 'Salud',                  obligatorio: true,  monto: 15000,   icono: '🏃',
+    match: [] },
+  { id: 'gf-13', nombre: 'YouTube Premium',      categoria: 'Servicios y Transporte', obligatorio: true,  monto: 11000,   icono: '▶️',
     match: ['YouTube', 'Google Play YouTube'] },
   { id: 'gf-14', nombre: 'Gastos comunes',       categoria: 'Hogar',                  obligatorio: true,  monto: 120000,  icono: '🏠',
     match: ['Gastos Comunes Depto'] },
@@ -66,6 +68,23 @@ async function gfSaveAsignaciones() {
 }
 
 function gfKey(periodo, gfId) { return `${periodo}:${gfId}`; }
+function gfIgnoredKey(periodo, gfId) { return `${periodo}:${gfId}:ignored`; }
+
+function gfIsIgnored(periodo, gfId) {
+  return !!gfAsignaciones[gfIgnoredKey(periodo, gfId)];
+}
+
+async function gfToggleIgnored(gfId) {
+  const periodo = UC_CORTES[gfPeriodoIdx].id;
+  const k = gfIgnoredKey(periodo, gfId);
+  if (gfAsignaciones[k]) {
+    delete gfAsignaciones[k];
+  } else {
+    gfAsignaciones[k] = true;
+  }
+  await gfSaveAsignaciones();
+  renderGastosFijos(true);
+}
 
 function gfAsignadasEnPeriodo(periodo, exceptoGfId) {
   const usadas = new Set();
@@ -76,11 +95,25 @@ function gfAsignadasEnPeriodo(periodo, exceptoGfId) {
   return usadas;
 }
 
-function gfChangePeriodo(delta) {
-  const newIdx = gfPeriodoIdx + delta;
-  if (newIdx < 0 || newIdx >= UC_CORTES.length) return;
-  gfPeriodoIdx = newIdx;
-  renderGastosFijos();
+function buildGfPeriodTabs() {
+  const container = document.getElementById('gf-period-tabs');
+  if (!container) return;
+  const periods = efGetPeriods();
+  const periodoActivo = UC_CORTES[gfPeriodoIdx] ? UC_CORTES[gfPeriodoIdx].id : null;
+  container.innerHTML = periods.map(p => `
+    <button class="ef-period-tab ${p === periodoActivo ? 'active' : ''}" data-period="${p}">
+      <span class="tab-label">${efPeriodLabel(p, true)}</span>
+      <span class="tab-dot"></span>
+    </button>
+  `).join('');
+  container.querySelectorAll('.ef-period-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = UC_CORTES.findIndex(c => c.id === btn.dataset.period);
+      if (idx >= 0) gfPeriodoIdx = idx;
+      buildGfPeriodTabs();
+      renderGastosFijos();
+    });
+  });
 }
 
 function gfTogglePicker(gfId) {
@@ -90,29 +123,41 @@ function gfTogglePicker(gfId) {
   if (isOpen) gfRenderPicker(gfId);
 }
 
-function gfRenderPicker(gfId) {
+function gfRenderPicker(gfId, query) {
   const periodo   = UC_CORTES[gfPeriodoIdx].id;
   const usadas    = gfAsignadasEnPeriodo(periodo, gfId);
   const asignadas = new Set(gfAsignaciones[gfKey(periodo, gfId)] || []);
   const gf        = GASTOS_FIJOS.find(g => g.id === gfId);
   const patterns  = gf ? (gf.match || []) : [];
 
-  // Si matchAllPeriodos, usar pool global precalculado
-  let pool = gf && gf.matchAllPeriodos ? gfTodosMovsGlobal : gfTodosMovs;
-
   const matchDesc = (desc) => patterns.some(p =>
     p.endsWith('*') ? desc.startsWith(p.slice(0,-1)) : desc === p
   );
 
-  const candidatos = pool.filter(m => {
-    if (usadas.has(m.id)) return false;
-    const desc = (m.nombre_descriptivo || '').trim();
-    return matchDesc(desc) || asignadas.has(m.id);
+  // Ya asignados a este gasto (se muestran separados arriba)
+  const yaAsignados = gfTodosMovsGlobal.filter(m => asignadas.has(m.id));
+
+  // Candidatos: coinciden por nombre, excluye ya asignados y usados por otros
+  const poolPrincipal = gf && gf.matchAllPeriodos ? gfTodosMovsGlobal : gfTodosMovs;
+  const candidatos = poolPrincipal.filter(m => {
+    if (usadas.has(m.id) || asignadas.has(m.id)) return false;
+    return matchDesc((m.nombre_descriptivo || '').trim());
   });
 
-  const otros = gfTodosMovs.filter(m =>
-    !usadas.has(m.id) && !candidatos.find(c => c.id === m.id)
+  // Otros: período anterior, actual y siguiente, excluye ya asignados, usados y candidatos
+  const prevPeriodo = gfPeriodoIdx > 0 ? UC_CORTES[gfPeriodoIdx - 1].id : null;
+  const nextPeriodo = gfPeriodoIdx < UC_CORTES.length - 1 ? UC_CORTES[gfPeriodoIdx + 1].id : null;
+  const candidatosIds = new Set(candidatos.map(m => m.id));
+  const otros = gfTodosMovsGlobal.filter(m =>
+    !usadas.has(m.id) && !asignadas.has(m.id) && !candidatosIds.has(m.id) &&
+    (m.periodo === prevPeriodo || m.periodo === nextPeriodo || m.periodo === periodo)
   );
+
+  // Filtro por búsqueda
+  const q = (query || '').toLowerCase().trim();
+  const filtrar = arr => q
+    ? arr.filter(m => (m.nombre_descriptivo || '').toLowerCase().includes(q))
+    : arr;
 
   const fmtF = (f, p) => {
     const fecha = f ? (() => { const d = new Date(f + 'T00:00:00'); return `${d.getDate()} ${d.toLocaleString('es-CL',{month:'short'})}`; })() : '';
@@ -128,19 +173,38 @@ function gfRenderPicker(gfId) {
       <span class="gf-pick-val">${fmtClpGF(m.valor)}</span>
     </label>`;
 
+  const yaFilt    = filtrar(yaAsignados);
+  const candFilt  = filtrar(candidatos);
+  const otrosFilt = filtrar(otros);
+
   let html = '';
-  if (!candidatos.length && !otros.length) {
-    html = '<div class="gf-pick-empty">Sin transacciones disponibles</div>';
+  if (yaFilt.length) {
+    html += '<div class="gf-pick-sep gf-pick-sep-assigned">Seleccionados</div>';
+    html += yaFilt.map(m => row(m, 'gf-pick-assigned')).join('');
+  }
+  if (!candFilt.length && !otrosFilt.length && !yaFilt.length) {
+    html = `<div class="gf-pick-empty">${q ? 'Sin resultados para "' + q + '"' : 'Sin transacciones disponibles'}</div>`;
   } else {
-    html += candidatos.map(m => row(m, '')).join('');
-    if (otros.length) {
-      html += '<div class="gf-pick-sep">Otras transacciones del período</div>';
-      html += otros.map(m => row(m, 'gf-pick-other')).join('');
+    html += candFilt.map(m => row(m, '')).join('');
+    if (q && otrosFilt.length) {
+      html += '<div class="gf-pick-sep">Otras transacciones</div>';
+      html += otrosFilt.map(m => row(m, 'gf-pick-other')).join('');
     }
   }
+  html += `<div class="gf-pick-search-more"><button class="gf-pick-search-more-btn" onclick="event.stopPropagation();gfOpenSearchForGF('${gfId}')">Buscar en todos los movimientos…</button></div>`;
 
   const picker = document.getElementById('gf-picker-' + gfId);
-  if (picker) picker.querySelector('.gf-pick-list').innerHTML = html;
+  if (!picker) return;
+
+  // Preservar o crear el buscador
+  let list = picker.querySelector('.gf-pick-list');
+  if (!picker.querySelector('.gf-pick-search')) {
+    const searchEl = document.createElement('div');
+    searchEl.className = 'gf-pick-search';
+    searchEl.innerHTML = `<input type="text" placeholder="Buscar…" oninput="gfRenderPicker('${gfId}',this.value)" onclick="event.stopPropagation()">`;
+    picker.insertBefore(searchEl, list);
+  }
+  list.innerHTML = html;
 }
 
 async function gfToggleAsignacion(gfId, movId) {
@@ -154,10 +218,34 @@ async function gfToggleAsignacion(gfId, movId) {
   renderGastosFijos(true);
 }
 
+function gfOpenSearchForGF(gfId) {
+  const periodo  = UC_CORTES[gfPeriodoIdx].id;
+  const key      = gfKey(periodo, gfId);
+  const preselected = new Set(gfAsignaciones[key] || []);
+  srOpen({
+    selectionMode: true,
+    preselected,
+    onConfirm: async (ids) => {
+      // Replace current assignments with confirmed selection
+      gfAsignaciones[key] = ids;
+      await gfSaveAsignaciones();
+      renderGastosFijos(true);
+    },
+  });
+}
+
 async function renderGastosFijos(mantenerPickers) {
   if (!renderGastosFijos._loaded) {
     await gfLoadAsignaciones();
     renderGastosFijos._loaded = true;
+  }
+
+  // Inicializar al período más reciente con datos si aún no se ha establecido
+  if (gfPeriodoIdx === null) {
+    const periods = efGetPeriods();
+    const defaultP = periods[periods.length - 1] || UC_CORTES[UC_CORTES.length - 1].id;
+    gfPeriodoIdx = UC_CORTES.findIndex(c => c.id === defaultP);
+    if (gfPeriodoIdx < 0) gfPeriodoIdx = UC_CORTES.length - 1;
   }
 
   const periodoActivo = UC_CORTES[gfPeriodoIdx].id;
@@ -223,12 +311,15 @@ async function renderGastosFijos(mantenerPickers) {
     const confirmed = matches.length > 0;
     const totalPagado = matches.reduce((s, m) => s + (m.valor || 0), 0);
 
-    if (gf.monto) presupuesto += gf.monto;
-    if (confirmed) { confirmados++; if (gf.monto) montoOk += gf.monto; }
+    const ignored = gfIsIgnored(periodoActivo, gf.id);
+
+    if (!ignored && gf.monto) presupuesto += gf.monto;
+    if (ignored) { /* excluido */ }
+    else if (confirmed) { confirmados++; if (gf.monto) montoOk += gf.monto; }
     else pendientes++;
 
     const amountClass = gf.monto === null ? 'gf-sin-monto' : '';
-    const statusClass = confirmed ? 'gf-confirmed' : 'gf-pending';
+    const statusClass = ignored ? 'gf-ignored' : confirmed ? 'gf-confirmed' : 'gf-pending';
 
     let matchHint = '';
     if (confirmed) {
@@ -247,7 +338,6 @@ async function renderGastosFijos(mantenerPickers) {
 
     return `
     <div class="gf-item ${statusClass}" onclick="gfTogglePicker('${gf.id}')">
-      <div class="gf-icon">${gf.icono}</div>
       <div class="gf-body">
         <div class="gf-name">${gf.nombre}</div>
         <div class="gf-meta">
@@ -260,6 +350,7 @@ async function renderGastosFijos(mantenerPickers) {
       <div class="gf-right">
         <span class="gf-amount ${amountClass}">${fmtClpGF(gf.monto)}</span>
         <div class="gf-status-dot"></div>
+        <span class="gf-ignore-btn" onclick="event.stopPropagation();gfToggleIgnored('${gf.id}')">${ignored ? 'Dejar de ignorar' : 'Ignorar'}</span>
       </div>
     </div>
     <div class="gf-picker" id="gf-picker-${gf.id}">
@@ -285,13 +376,7 @@ async function renderGastosFijos(mantenerPickers) {
   if (el('gf-progress-fill'))     el('gf-progress-fill').style.width     = pct + '%';
   if (el('gf-progress-label'))    el('gf-progress-label').textContent    = `${confirmados} / ${total} verificados`;
 
-  const hd = el('header-date-fijos');
-  if (hd) { const c = UC_CORTES[gfPeriodoIdx]; hd.textContent = c ? c.id : ''; }
-
-  const prevBtn = el('gf-prev-btn');
-  const nextBtn = el('gf-next-btn');
-  if (prevBtn) prevBtn.disabled = gfPeriodoIdx <= 0;
-  if (nextBtn) nextBtn.disabled = gfPeriodoIdx >= UC_CORTES.length - 1;
+  buildGfPeriodTabs();
 }
 
 // Enganchar en navegación existente

@@ -124,11 +124,12 @@ function buildDataPayload() {
       lastModified: new Date().toISOString(),
       description:  'Finanzas personal — exportado desde PWA',
     },
-    MOVIMIENTOS:    MOVIMIENTOS,
-    CC_MOVIMIENTOS: CC_MOVIMIENTOS,
-    DEUDAS:         DEUDAS,
-    CUPOS:          CUPOS,
-    CORTES_PERIODO: CORTES_PERIODO,
+    MOVIMIENTOS:     MOVIMIENTOS,
+    CC_MOVIMIENTOS:  CC_MOVIMIENTOS,
+    DEUDAS:          DEUDAS,
+    CUPOS:           CUPOS,
+    CORTES_PERIODO:  CORTES_PERIODO,
+    GF_ASIGNACIONES: gfAsignaciones,
   };
 }
 
@@ -215,6 +216,12 @@ async function importJSON(file) {
     await idbPutAll('deudas',         DEUDAS);
     await idbPut('config', 'CUPOS',          CUPOS);
     await idbPut('config', 'CORTES_PERIODO', CORTES_PERIODO);
+
+    // Restaurar asignaciones de gastos fijos
+    if (data.GF_ASIGNACIONES) {
+      gfAsignaciones = data.GF_ASIGNACIONES;
+      await gfSaveAsignaciones();
+    }
 
     // Recalcular derivados y re-renderizar
     computeDerivedData();

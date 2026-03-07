@@ -23,15 +23,21 @@ function buildPeriodTabs(containerId, activeRef, onSelect) {
 }
 
 // ── Multi-select period tabs for Efectivo ─────────────────────────────────────
-let efPeriodosSeleccionados = new Set(); // vacío = todos
+// null = sin filtro de período (muestra todos); Set = filtro activo (puede estar vacío = nada)
+let efPeriodosSeleccionados = null;
+
+function efDefaultPeriodos() {
+  // Usa el período activo según UC_CORTES (el que contiene la fecha de hoy)
+  const hoy = new Date().toISOString().split('T')[0];
+  const periodoHoy = typeof fechaToPeriodoUC === 'function' ? fechaToPeriodoUC(hoy) : UC_CORTES[UC_CORTES.length - 1].id;
+  return new Set([periodoHoy]);
+}
 
 function buildEfPeriodTabs() {
   const periods = efGetPeriods();
-  const lastPeriod = periods[periods.length - 1]; // el período futuro es el último
-  // Si no hay selección, seleccionar solo los períodos con corte UC (períodos "reales")
-  if (efPeriodosSeleccionados.size === 0) {
-    const ucPeriods = new Set(UC_CORTES.map(c => c.id));
-    periods.forEach(p => { if (ucPeriods.has(p)) efPeriodosSeleccionados.add(p); });
+  // Inicializar con default si aún no hay selección explícita
+  if (efPeriodosSeleccionados === null) {
+    efPeriodosSeleccionados = efDefaultPeriodos();
   }
   const container = document.getElementById('ef-period-tabs');
   const allMovPeriods = new Set(efAllMovs().map(m => m.periodo));
@@ -49,7 +55,7 @@ function buildEfPeriodTabs() {
     btn.addEventListener('click', () => {
       const p = btn.dataset.period;
       if (efPeriodosSeleccionados.has(p)) {
-        if (efPeriodosSeleccionados.size > 1) efPeriodosSeleccionados.delete(p);
+        efPeriodosSeleccionados.delete(p);
       } else {
         efPeriodosSeleccionados.add(p);
       }
@@ -61,7 +67,7 @@ function buildEfPeriodTabs() {
 
 // ── State ─────────────────────────────────────────────────────────────────────
 const efPeriodoRef = { value: null }; // kept for Resumen compatibility
-let efSortMode = 'categoria';
+let efSortMode = 'fecha';
 let efSearchQuery = '';
 let efFilterDesde = '';
 let efFilterHasta = '';
@@ -163,6 +169,14 @@ function efRenderMovimientos(movs) {
   html += '</div>';
   container.innerHTML = html;
 
+  container.querySelectorAll('[data-edit]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const m = efAllMovs().find(x => x.id === btn.dataset.edit);
+      if (m) emOpen(m);
+    });
+  });
+
   container.querySelectorAll('[data-delete]').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
@@ -177,6 +191,7 @@ function efRenderMovimientos(movs) {
   container.querySelectorAll('.ef-mov-row').forEach(row => {
     row.addEventListener('click', e => {
       if (e.target.closest('[data-delete]')) return;
+      if (e.target.closest('[data-edit]')) return;
       const id = row.dataset.id;
       if (expandedId && expandedId !== id) {
         const prev = container.querySelector(`.ef-mov-row[data-id="${expandedId}"]`);
@@ -223,6 +238,9 @@ function efMovRow(m) {
           </div>
         </div>
         <span class="ef-mov-amount ${m.tipo}">${m.tipo === 'egreso' ? '-' : '+'}$${m.monto.toLocaleString('es-CL')}</span>
+        <button class="ef-mov-edit" data-edit="${m.id}" title="Editar">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
         ${isEf ? `<button class="ef-mov-delete" data-delete="${m.id}" title="Eliminar">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
         </button>` : `<div style="width:21px;"></div>`}
@@ -267,8 +285,8 @@ function efUpdateFilterBadge() {
     btn.style.borderColor = 'var(--danger)';
     btn.style.color = 'var(--danger)';
     btn.style.background = 'rgba(192,57,43,0.06)';
-    icon.innerHTML = '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>';
-    label.textContent = 'Limpiar';
+    icon.innerHTML = '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>';
+    label.textContent = `Filtrar (${count})`;
     btn.dataset.hasFilters = '1';
   } else {
     btn.style.borderColor = 'var(--border)';
@@ -286,9 +304,9 @@ function efBuildCategoryChips() {
   container.innerHTML = allCats.map(cat => {
     const color = catColor(cat);
     const isGray = color === '#888888' || color === 'var(--text-secondary)';
-    const active = efFilterCats.size === 0 || efFilterCats.has(cat);
-    const activeBg = isGray ? 'rgba(255,255,255,0.15)' : color + '33';
-    const activeBorder = isGray ? 'rgba(255,255,255,0.5)' : color;
+    const active = efFilterCats.has(cat);
+    const activeBg = isGray ? 'rgba(136,136,136,0.12)' : color + '22';
+    const activeBorder = isGray ? 'rgba(150,150,150,0.6)' : color;
     const activeColor = isGray ? 'var(--text-primary)' : color;
     return `<button class="ef-cat-chip" data-cat="${cat}" style="
       display:flex;align-items:center;gap:5px;padding:6px 11px;border-radius:20px;cursor:pointer;font-size:11px;font-family:inherit;transition:all 0.12s;
@@ -305,16 +323,10 @@ function efBuildCategoryChips() {
   container.querySelectorAll('.ef-cat-chip').forEach(chip => {
     chip.addEventListener('click', () => {
       const cat = chip.dataset.cat;
-      const allCatsList = [...new Set(efAllMovs().map(m => m.categoria || 'Por Clasificar'))];
-      if (efFilterCats.size === 0) {
-        // Todas activas → dejar solo esta
-        efFilterCats = new Set(allCatsList.filter(c => c !== cat));
-      } else if (efFilterCats.has(cat)) {
+      if (efFilterCats.has(cat)) {
         efFilterCats.delete(cat);
-        if (efFilterCats.size === 0) efFilterCats = new Set(); // todas
       } else {
         efFilterCats.add(cat);
-        if (efFilterCats.size === allCatsList.length) efFilterCats = new Set(); // todas = sin filtro
       }
       efBuildCategoryChips();
       efApplyFilters();
@@ -332,9 +344,9 @@ function efBuildOriginChips() {
   };
   container.innerHTML = ORIGINS.map(orig => {
     const color = ORIGIN_COLORS[orig] || '#888';
-    const active = efFilterOrigins.size === 0 || efFilterOrigins.has(orig);
+    const active = efFilterOrigins.has(orig);
     const isGray = color === '#888';
-    const activeBg = isGray ? 'rgba(255,255,255,0.15)' : color.startsWith('var') ? 'rgba(26,122,74,0.15)' : color + '33';
+    const activeBg = isGray ? 'rgba(136,136,136,0.12)' : color.startsWith('var') ? 'rgba(26,122,74,0.12)' : color + '22';
     const activeBorder = isGray ? 'rgba(150,150,150,0.6)' : color;
     const activeColor = isGray ? 'var(--text-primary)' : color;
     return `<button class="ef-origin-chip" data-origin="${orig}" style="
@@ -352,14 +364,10 @@ function efBuildOriginChips() {
   container.querySelectorAll('.ef-origin-chip').forEach(chip => {
     chip.addEventListener('click', () => {
       const orig = chip.dataset.origin;
-      if (efFilterOrigins.size === 0) {
-        efFilterOrigins = new Set(ORIGINS.filter(o => o !== orig));
-      } else if (efFilterOrigins.has(orig)) {
+      if (efFilterOrigins.has(orig)) {
         efFilterOrigins.delete(orig);
-        if (efFilterOrigins.size === 0) efFilterOrigins = new Set();
       } else {
         efFilterOrigins.add(orig);
-        if (efFilterOrigins.size === ORIGINS.length) efFilterOrigins = new Set();
       }
       efBuildOriginChips();
       efApplyFilters();
@@ -397,15 +405,7 @@ document.getElementById('ef-search-clear').addEventListener('click', () => {
 });
 
 document.getElementById('ef-filter-btn').addEventListener('click', () => {
-  if (document.getElementById('ef-filter-btn').dataset.hasFilters === '1') {
-    efFilterDesde = '';
-    efFilterHasta = '';
-    efFilterCats = new Set();
-    efFilterOrigins = new Set();
-    efApplyFilters();
-  } else {
-    efOpenFilterModal();
-  }
+  efOpenFilterModal();
 });
 
 document.getElementById('ef-filter-close').addEventListener('click', () => {
@@ -419,13 +419,36 @@ document.getElementById('ef-filter-overlay').addEventListener('click', e => {
   }
 });
 
+// Activa en los tabs de período todos los meses cubiertos por el rango de fechas
+function efSyncPeriodTabsFromDates() {
+  const desde = efFilterDesde;
+  const hasta = efFilterHasta;
+  if (!desde && !hasta) return;
+  const periods = efGetPeriods();
+  const periodos = new Set();
+  periods.forEach(p => {
+    const corte = UC_CORTES.find(c => c.id === p);
+    const pDesde = corte ? corte.desde : p.slice(0,4) + '-' + p.slice(4,6) + '-01';
+    const pHasta = corte ? corte.hasta : p.slice(0,4) + '-' + p.slice(4,6) + '-31';
+    const rangoDesde = desde || '0000-01-01';
+    const rangoHasta = hasta || '9999-12-31';
+    if (pDesde <= rangoHasta && pHasta >= rangoDesde) periodos.add(p);
+  });
+  if (periodos.size > 0) {
+    efPeriodosSeleccionados = periodos;
+    buildEfPeriodTabs();
+  }
+}
+
 // Fechas — aplicar en tiempo real
 document.getElementById('ef-filter-desde').addEventListener('change', e => {
   efFilterDesde = e.target.value;
+  efSyncPeriodTabsFromDates();
   efApplyFilters();
 });
 document.getElementById('ef-filter-hasta').addEventListener('change', e => {
   efFilterHasta = e.target.value;
+  efSyncPeriodTabsFromDates();
   efApplyFilters();
 });
 
@@ -435,6 +458,8 @@ document.getElementById('ef-filter-clear-dates').addEventListener('click', () =>
   efFilterHasta = '';
   document.getElementById('ef-filter-desde').value = '';
   document.getElementById('ef-filter-hasta').value = '';
+  efPeriodosSeleccionados = efDefaultPeriodos();
+  buildEfPeriodTabs();
   efApplyFilters();
 });
 
@@ -460,6 +485,8 @@ document.getElementById('ef-filter-clear').addEventListener('click', () => {
   efFilterOrigins = new Set();
   document.getElementById('ef-filter-desde').value = '';
   document.getElementById('ef-filter-hasta').value = '';
+  efPeriodosSeleccionados = efDefaultPeriodos();
+  buildEfPeriodTabs();
   efBuildCategoryChips();
   efBuildOriginChips();
   efApplyFilters();

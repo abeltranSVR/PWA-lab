@@ -2,19 +2,20 @@
 // ║  resumen.js — View Resumen: resRender, breakdown, comparativo, pendientes  ║
 // ╚══════════════════════════════════════════════════════════════════════════════╝
 
-let resFiltros = new Set();
+let resFiltros = null; // null = usar default al primer render
 let resShowAllCats = false;
+
+function resDefaultFiltros() {
+  return efDefaultPeriodos();
+}
 
 function resBuildTabs() {
   const periods = efGetPeriods();
-  const allMovPeriods = new Set(efAllMovs().map(m => m.periodo));
-
-  // Selección inicial: período más reciente con datos
-  if (resFiltros.size === 0) {
-    const reciente = periods.find(p => allMovPeriods.has(p));
-    if (reciente) resFiltros.add(reciente);
+  if (resFiltros === null) {
+    resFiltros = resDefaultFiltros();
   }
 
+  const allMovPeriods = new Set(efAllMovs().map(m => m.periodo));
   const container = document.getElementById('res-period-tabs');
   container.innerHTML = periods.map(p => {
     const hasDatos = allMovPeriods.has(p);
@@ -29,7 +30,7 @@ function resBuildTabs() {
     btn.addEventListener('click', () => {
       const p = btn.dataset.period;
       if (resFiltros.has(p)) {
-        if (resFiltros.size > 1) resFiltros.delete(p);
+        resFiltros.delete(p);
       } else {
         resFiltros.add(p);
       }
@@ -45,7 +46,7 @@ function resRender() {
   const neutros = new Set(['Pagos TC', 'Préstamos Personales']);
   const movs = resFiltros.size > 0
     ? all.filter(m => resFiltros.has(m.periodo) && !neutros.has(m.categoria))
-    : all.filter(m => !neutros.has(m.categoria));
+    : [];
 
   const ingresos = movs.filter(m => m.tipo === 'ingreso');
   const egresos  = movs.filter(m => m.tipo === 'egreso');
@@ -54,11 +55,11 @@ function resRender() {
   const neto = totalIng - totalEgr;
 
   // Hero
-  const heroLabel = resFiltros.size === 1
-    ? efPeriodLabel([...resFiltros][0])
-    : resFiltros.size > 1
-      ? [...resFiltros].sort().map(p => efPeriodLabel(p, true)).join(' · ')
-      : 'Todo el año';
+  const heroLabel = resFiltros.size === 0
+    ? '—'
+    : resFiltros.size === 1
+      ? efPeriodLabel([...resFiltros][0])
+      : [...resFiltros].sort().map(p => efPeriodLabel(p, true)).join(' · ');
 
   document.getElementById('res-hero-periodo').textContent = heroLabel;
 
@@ -82,7 +83,7 @@ function resRender() {
   document.getElementById('res-cat-total').textContent = fmtCLP(totalEgr) + ' total';
   resRenderBreakdown(bycat, cats, totalEgr);
   resRenderComparativo(all);
-  resRenderPendientes(movs);
+  resRenderPendientes(all);
 
   const el = document.getElementById('header-date-resumen');
   if (el) el.textContent = new Date().toLocaleDateString('es-CL', { day:'numeric', month:'long', year:'numeric' }).toUpperCase();
@@ -203,11 +204,85 @@ function resRenderPendientes(movs) {
 
   document.getElementById('res-pending-container').innerHTML = pend.map(m => `
     <div class="res-pending-row">
-      <div>
+      <div style="flex:1;min-width:0;">
         <div class="res-pending-name">${m.nombre_descriptivo || m.categoria}</div>
-        <div class="res-pending-sub">${efPeriodLabel(m.periodo)}</div>
+        <div class="res-pending-sub">${efPeriodLabel(m.periodo)}${m.monto_reembolso_esperado ? ' · Esperado: ' + fmtCLP(m.monto_reembolso_esperado) : ''}</div>
       </div>
-      <div class="res-pending-amount">${fmtCLP(m.monto)}</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+        <div class="res-pending-amount">${fmtCLP(m.monto)}</div>
+        <button class="res-saldar-btn" data-movid="${m.id}" title="Saldar reembolso">Saldar</button>
+      </div>
     </div>
   `).join('');
+
+  document.getElementById('res-pending-container').querySelectorAll('.res-saldar-btn').forEach(btn => {
+    btn.addEventListener('click', () => resSaldar(btn.dataset.movid));
+  });
+}
+
+async function resMarcarReembolsado(movId) {
+  const orig = MOVIMIENTOS.find(x => x.id === movId);
+  if (orig) {
+    orig.reembolsado = true;
+    orig.pendiente_reembolso = false;
+  }
+  await syncMemoryToIDB();
+  computeDerivedData();
+  resRender();
+}
+
+function resSaldar(movId) {
+  const m = efAllMovs().find(x => x.id === movId);
+  if (!m) return;
+
+  // Mostrar mini-menú de opciones
+  const existing = document.getElementById('res-saldar-menu');
+  if (existing) existing.remove();
+
+  const btn = document.querySelector(`.res-saldar-btn[data-movid="${movId}"]`);
+  if (!btn) return;
+
+  const menu = document.createElement('div');
+  menu.id = 'res-saldar-menu';
+  menu.className = 'res-saldar-menu';
+  menu.innerHTML = `
+    <button class="res-saldar-opt" id="res-saldar-crear">Crear nuevo registro</button>
+    <button class="res-saldar-opt" id="res-saldar-vincular">Vincular existente</button>
+    <button class="res-saldar-opt res-saldar-opt-cancel" id="res-saldar-cancel">Cancelar</button>
+  `;
+
+  btn.parentElement.appendChild(menu);
+
+  menu.querySelector('#res-saldar-crear').addEventListener('click', () => {
+    menu.remove();
+    cmOpen({
+      destino: 'cc',
+      tipo: 'abono',
+      categoria: 'Reembolso Recibido',
+      nombre_descriptivo: `Reembolso ${m.nombre_descriptivo || ''}`.trim(),
+      monto: m.monto_reembolso_esperado || m.monto || '',
+    }, () => resMarcarReembolsado(movId));
+  });
+
+  menu.querySelector('#res-saldar-vincular').addEventListener('click', () => {
+    menu.remove();
+    srOpen({
+      selectionMode: true,
+      onConfirm: async (ids) => {
+        if (ids.length > 0) await resMarcarReembolsado(movId);
+      },
+    });
+  });
+
+  menu.querySelector('#res-saldar-cancel').addEventListener('click', () => menu.remove());
+
+  // Cerrar al hacer click fuera
+  setTimeout(() => {
+    document.addEventListener('click', function handler(e) {
+      if (!menu.contains(e.target) && e.target !== btn) {
+        menu.remove();
+        document.removeEventListener('click', handler);
+      }
+    });
+  }, 0);
 }

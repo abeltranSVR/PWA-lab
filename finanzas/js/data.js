@@ -123,6 +123,9 @@ function computeDerivedData() {
         cuota_actual: m.cuota_actual,
         cuotas_totales: m.cuotas_totales,
         nombre_original: m.nombre_original,
+        pendiente_reembolso: m.pendiente_reembolso || false,
+        reembolsado: m.reembolsado || false,
+        monto_reembolso_esperado: m.monto_reembolso_esperado || null,
       }));
   })();
 
@@ -229,8 +232,8 @@ function efMovsForPeriod(periodo) {
 }
 
 function efMovsForPeriodos(periodos) {
-  // null/empty = todos
-  if (!periodos || periodos.size === 0) return efAllMovs();
+  // Set vacío = ninguno; Set con valores = filtrar por esos períodos
+  if (!periodos || periodos.size === 0) return [];
   return efAllMovs().filter(m => periodos.has(m.periodo));
 }
 
