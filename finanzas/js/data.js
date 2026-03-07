@@ -76,6 +76,7 @@ function offsetDate(dateStr, days) {
 }
 
 function fechaToPeriodoUC(fechaStr) {
+  if (!UC_CORTES.length) return '';
   for (const c of UC_CORTES) {
     if (fechaStr >= c.desde && fechaStr <= c.hasta) return c.id;
   }

@@ -81,6 +81,7 @@ function cmOnCategoriaChange(cat) {
 }
 
 function cmOpen(defaults, onAfterCreate) {
+  if (!UC_CORTES.length) { showToast('⚠️ Sin datos cargados — importa el archivo primero'); return; }
   _cmDefaults = defaults || {};
   _cmOnAfterCreate = onAfterCreate || null;
   cmReset(_cmDefaults);
