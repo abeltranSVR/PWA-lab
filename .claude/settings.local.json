@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"require\\(''canvas''\\)\")",
+      "Bash(ls -la \"c:/Users/agust/OneDrive - Universidad Católica de Chile/Documentos/Silver/PWA-lab/finanzas/icon-\"*.png)"
+    ]
+  }
+}

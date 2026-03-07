@@ -20,6 +20,9 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Evitar zoom automático en iOS al enfocar inputs */
+input, select, textarea { font-size: max(16px, 1em); }
+
 body {
   background: var(--bg);
   color: var(--text-primary);
@@ -44,7 +47,7 @@ body::before {
   z-index: 1;
   max-width: 480px;
   margin: 0 auto;
-  padding: 0 0 80px;
+  padding: 0 0 calc(80px + env(safe-area-inset-bottom));
 }
 
 /* Header */
@@ -540,28 +543,31 @@ body::before {
   background: rgba(242,242,240,0.92);
   backdrop-filter: blur(20px);
   border-top: 1px solid var(--border);
-  padding: 10px 0 20px;
+  padding: 10px 0 calc(20px + env(safe-area-inset-bottom));
   display: flex;
   justify-content: space-around;
+  align-items: center;
   z-index: 100;
+  overflow: visible;
 }
 
 .nav-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
+  gap: 3px;
+  padding: 6px 4px;
   cursor: pointer;
   opacity: 0.4;
   transition: opacity 0.2s;
+  min-width: 0;
 }
 
 .nav-item.active { opacity: 1; }
 
 .nav-icon {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -569,8 +575,9 @@ body::before {
 
 .nav-label {
   font-family: 'DM Mono', monospace;
-  font-size: 9px;
-  letter-spacing: 0.08em;
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
   text-transform: uppercase;
   color: var(--text-secondary);
 }
@@ -1297,7 +1304,6 @@ body.sync-visible { padding-top: 37px; }
   justify-content: center;
   box-shadow: 0 3px 14px rgba(76,175,130,.5);
   flex-shrink: 0;
-  margin-top: -14px; /* sobresale por encima de la nav */
   transition: transform 0.12s, box-shadow 0.12s;
 }
 .nav-add-btn:active { transform: scale(.93); box-shadow: 0 1px 6px rgba(76,175,130,.3); }

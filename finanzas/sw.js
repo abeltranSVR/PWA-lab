@@ -31,6 +31,8 @@ self.addEventListener('install', event => {
         SCOPE + 'js/views/efectivo.js',
         SCOPE + 'js/views/resumen.js',
         SCOPE + 'js/app.js',
+        SCOPE + 'icon-192.png',
+        SCOPE + 'icon-512.png',
       ]))
       .then(() => self.skipWaiting())
   );
