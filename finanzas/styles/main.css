@@ -1303,6 +1303,8 @@ body.sync-visible { padding-top: 37px; }
   align-items: center;
   justify-content: center;
   box-shadow: 0 3px 14px rgba(76,175,130,.5);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   flex-shrink: 0;
   transition: transform 0.12s, box-shadow 0.12s;
 }

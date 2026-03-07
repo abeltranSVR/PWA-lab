@@ -56,10 +56,9 @@ document.getElementById('main-nav').addEventListener('click', e => {
   if (item) switchView(item.dataset.view);
 });
 
-document.getElementById('nav-add-btn').addEventListener('click', e => {
-  e.stopPropagation();
-  cmOpen();
-});
+const _navAddBtn = document.getElementById('nav-add-btn');
+_navAddBtn.addEventListener('click', e => { e.stopPropagation(); cmOpen(); });
+_navAddBtn.addEventListener('touchend', e => { e.preventDefault(); e.stopPropagation(); cmOpen(); });
 
 // ── Service Worker ────────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
