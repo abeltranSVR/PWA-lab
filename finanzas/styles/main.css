@@ -23,6 +23,11 @@
 /* Evitar zoom automático en iOS al enfocar inputs */
 input, select, textarea { font-size: max(16px, 1em); }
 
+/* Ocultar labels de toolbar en pantallas muy pequeñas */
+@media (max-width: 360px) {
+  .ef-toolbar-label { display: none; }
+}
+
 body {
   background: var(--bg);
   color: var(--text-primary);
@@ -48,6 +53,7 @@ body::before {
   max-width: 480px;
   margin: 0 auto;
   padding: 0 0 calc(80px + env(safe-area-inset-bottom));
+  overflow-x: hidden;
 }
 
 /* Header */
@@ -119,12 +125,15 @@ body::before {
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid var(--border);
+  overflow: hidden;
 }
 
 .card-cupos {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .card-right {
@@ -132,6 +141,8 @@ body::before {
   flex-direction: column;
   align-items: flex-end;
   gap: 4px;
+  min-width: 0;
+  flex-shrink: 0;
 }
 
 .card-bank-label {
@@ -191,6 +202,9 @@ body::before {
   font-weight: 500;
   letter-spacing: -0.3px;
   line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cupo-total .cupo-value { color: var(--text-primary); }
@@ -214,6 +228,9 @@ body::before {
   font-family: 'DM Mono', monospace;
   font-size: 11px;
   color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .progress-pct span {
@@ -396,6 +413,7 @@ body::before {
 
 .facturacion-col {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1011,7 +1029,7 @@ body::before {
 .ef-mov-amount.ingreso { color: var(--accent); }
 
 .ef-mov-delete {
-  opacity: 0;
+  opacity: 0.25;
   background: none;
   border: none;
   cursor: pointer;
@@ -1024,7 +1042,7 @@ body::before {
 .ef-mov-delete:hover { color: var(--danger); }
 
 .ef-mov-edit {
-  opacity: 0;
+  opacity: 0.35;
   background: none;
   border: none;
   cursor: pointer;
@@ -1033,7 +1051,8 @@ body::before {
   transition: opacity 0.15s, color 0.15s;
   flex-shrink: 0;
 }
-.ef-mov-row:hover .ef-mov-edit { opacity: 1; }
+.ef-mov-row:hover .ef-mov-edit,
+.ef-mov-row:active .ef-mov-edit { opacity: 1; }
 .ef-mov-edit:hover { color: var(--accent); }
 .sr-select-row .ef-mov-edit { opacity: 0.6; }
 .sr-select-row:hover .ef-mov-edit { opacity: 1; }
@@ -1174,6 +1193,7 @@ body::before {
 
 .deuda-col {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 3px;

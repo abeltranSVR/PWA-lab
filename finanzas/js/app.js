@@ -172,15 +172,48 @@ async function saveToServer() {
 }
 
 // ── Exportar JSON ────────────────────────────────────────────────────────────
-function exportJSON() {
+async function exportJSON() {
   const payload  = buildDataPayload();
   const json     = JSON.stringify(payload, null, 2);
   const blob     = new Blob([json], { type: 'application/json' });
-  const url      = URL.createObjectURL(blob);
   const date     = new Date().toISOString().slice(0, 10);
-  const a        = document.createElement('a');
-  a.href         = url;
-  a.download     = `finanzas-data-${date}.json`;
+  const fileName = `finanzas-data-${date}.json`;
+
+  const file = new File([blob], fileName, { type: 'application/json' });
+
+  // Compartir nativo (Android/iOS) — abre diálogo con OneDrive, Drive, etc.
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: 'Finanzas — base de datos' });
+      showToast('↑ Compartido');
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+    }
+  }
+
+  // Fallback: showSaveFilePicker (desktop Chrome/Edge)
+  if (window.showSaveFilePicker) {
+    try {
+      const fh = await window.showSaveFilePicker({
+        suggestedName: fileName,
+        types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+      });
+      const w = await fh.createWritable();
+      await w.write(blob);
+      await w.close();
+      showToast('↓ JSON exportado');
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+    }
+  }
+
+  // Fallback final: descarga directa
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement('a');
+  a.href    = url;
+  a.download = fileName;
   a.click();
   URL.revokeObjectURL(url);
   showToast('↓ JSON exportado');

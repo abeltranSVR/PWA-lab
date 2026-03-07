@@ -306,8 +306,7 @@ async function renderGastosFijos(mantenerPickers) {
   const items = GASTOS_FIJOS.map(gf => {
     const key      = gfKey(periodoActivo, gf.id);
     const idsAsig  = gfAsignaciones[key] || [];
-    const pool     = gf.matchAllPeriodos ? gfTodosMovsGlobal : gfTodosMovs;
-    const matches  = pool.filter(m => idsAsig.includes(m.id));
+    const matches  = gfTodosMovsGlobal.filter(m => idsAsig.includes(m.id));
     const confirmed = matches.length > 0;
     const totalPagado = matches.reduce((s, m) => s + (m.valor || 0), 0);
 
