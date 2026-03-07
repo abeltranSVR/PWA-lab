@@ -48,8 +48,9 @@ function srClose() {
 
 function srConfirm() {
   const ids = [...srSeleccionados];
+  const cb  = srOnConfirm;
   srClose();
-  if (srOnConfirm) srOnConfirm(ids);
+  if (cb) cb(ids);
 }
 
 // ── Filtrar movimientos ───────────────────────────────────────────────────────

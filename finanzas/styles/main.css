@@ -1243,6 +1243,132 @@ body::before {
   letter-spacing: 0.05em;
 }
 
+/* ── Lista de deseos ───────────────────────────────────────────────────── */
+.wl-list {
+  padding: 4px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wl-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: border-color .2s;
+}
+
+.wl-item-body { flex: 1; min-width: 0; }
+
+.wl-item-nombre {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wl-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.wl-period-tag {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+}
+
+.wl-item-nota {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wl-item-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.wl-item-monto {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.wl-item-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.wl-item-convert, .wl-item-del {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  opacity: 0.3;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  transition: opacity .15s, color .15s;
+}
+.wl-item-convert:hover, .wl-item-convert:active { opacity: 1; color: var(--accent); }
+.wl-item-del:hover, .wl-item-del:active { opacity: 1; color: var(--danger); }
+
+.wl-resumen {
+  margin: 4px 16px 100px;
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.wl-res-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+.wl-res-total {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.wl-empty {
+  padding: 40px 20px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
 /* ── Sync bar ──────────────────────────────────────────────────────────── */
 #sync-bar {
   position: fixed;

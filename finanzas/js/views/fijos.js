@@ -365,7 +365,7 @@ async function renderGastosFijos(mantenerPickers) {
     if (el) { el.classList.add('gf-picker-open'); gfRenderPicker(gfId); }
   });
 
-  const total = GASTOS_FIJOS.length;
+  const total = confirmados + pendientes; // excluye ignorados
   const pct   = total > 0 ? Math.round((confirmados / total) * 100) : 0;
 
   const el = id => document.getElementById(id);

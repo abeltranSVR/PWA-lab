@@ -134,6 +134,7 @@ function buildDataPayload() {
     CUPOS:           CUPOS,
     CORTES_PERIODO:  CORTES_PERIODO,
     GF_ASIGNACIONES: gfAsignaciones,
+    WL_ITEMS:        wlItems,
   };
 }
 
@@ -258,6 +259,12 @@ async function importJSON(file) {
     if (data.GF_ASIGNACIONES) {
       gfAsignaciones = data.GF_ASIGNACIONES;
       await gfSaveAsignaciones();
+    }
+
+    // Restaurar lista de deseos
+    if (Array.isArray(data.WL_ITEMS)) {
+      wlItems = data.WL_ITEMS;
+      wlSave();
     }
 
     // Recalcular derivados y re-renderizar
