@@ -22,8 +22,10 @@
     <span id="sync-label">Verificando servidor…</span>
   </div>
   <div class="sync-actions">
+    <span id="last-export-label" class="sync-last-export"></span>
     <button class="sync-btn" id="btn-export" title="Exportar datos como JSON">↓ Exportar</button>
     <label class="sync-btn" for="import-file" title="Importar datos desde JSON" style="cursor:pointer">↑ Importar</label>
+    <button class="sync-btn danger" id="btn-reset" title="Borrar todos los datos">✕ Borrar</button>
     <button class="sync-btn primary" id="btn-save" title="Guardar en servidor local">💾 Guardar</button>
   </div>
 </div>
@@ -57,6 +59,9 @@
     </div>
     <div class="header-date" id="header-date"></div>
   </header>
+
+  <!-- Period tabs tarjetas -->
+  <div class="res-period-tabs-wrap" id="tc-period-tabs"></div>
 
   <!-- BCH Card -->
   <div class="card bch" id="card-bch">
@@ -173,6 +178,12 @@
       </div>
     </div>
   </div>
+
+  <!-- Gastos fijos pendientes mes actual -->
+  <div id="res-gf-card" class="res-gf-card" style="display:none;"></div>
+
+  <!-- Proyección mes actual -->
+  <div id="res-proyeccion-card" class="res-proyeccion-card" style="display:none;"></div>
 
   <!-- Distribución de egresos -->
   <div class="res-section-label" id="res-distrib-label">Distribución de egresos</div>

@@ -173,6 +173,18 @@ async function saveToServer() {
 }
 
 // ── Exportar JSON ────────────────────────────────────────────────────────────
+const LAST_EXPORT_KEY = 'finanzas_last_export';
+
+function updateLastExportLabel() {
+  const el = document.getElementById('last-export-label');
+  if (!el) return;
+  const ts = localStorage.getItem(LAST_EXPORT_KEY);
+  if (!ts) { el.textContent = ''; return; }
+  const d = new Date(ts);
+  const pad = n => String(n).padStart(2, '0');
+  el.textContent = `exp. ${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 async function exportJSON() {
   const payload  = buildDataPayload();
   const json     = JSON.stringify(payload, null, 2);
@@ -186,6 +198,8 @@ async function exportJSON() {
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: 'Finanzas — base de datos' });
+      localStorage.setItem(LAST_EXPORT_KEY, new Date().toISOString());
+      updateLastExportLabel();
       showToast('↑ Compartido');
       return;
     } catch (e) {
@@ -203,6 +217,8 @@ async function exportJSON() {
       const w = await fh.createWritable();
       await w.write(blob);
       await w.close();
+      localStorage.setItem(LAST_EXPORT_KEY, new Date().toISOString());
+      updateLastExportLabel();
       showToast('↓ JSON exportado');
       return;
     } catch (e) {
@@ -217,7 +233,78 @@ async function exportJSON() {
   a.download = fileName;
   a.click();
   URL.revokeObjectURL(url);
+  localStorage.setItem(LAST_EXPORT_KEY, new Date().toISOString());
+  updateLastExportLabel();
   showToast('↓ JSON exportado');
+}
+
+// ── Borrar todos los datos ────────────────────────────────────────────────────
+let _resetConfirmTimer = null;
+
+async function resetAll() {
+  const btn = document.getElementById('btn-reset');
+  if (!btn) return;
+
+  // Primera pulsación: pedir confirmación
+  if (btn.dataset.confirm !== '1') {
+    btn.dataset.confirm = '1';
+    btn.textContent = '¿Seguro?';
+    btn.style.background = '#c0392b';
+    btn.style.color = '#fff';
+    _resetConfirmTimer = setTimeout(() => {
+      btn.dataset.confirm = '';
+      btn.textContent = '✕ Borrar';
+      btn.style.background = '';
+      btn.style.color = '';
+    }, 3000);
+    return;
+  }
+
+  // Segunda pulsación: ejecutar borrado
+  clearTimeout(_resetConfirmTimer);
+  btn.dataset.confirm = '';
+  btn.textContent = '✕ Borrar';
+  btn.style.background = '';
+  btn.style.color = '';
+
+  // Limpiar variables globales
+  MOVIMIENTOS    = [];
+  CC_MOVIMIENTOS = [];
+  DEUDAS         = [];
+  CUPOS          = {};
+  CORTES_PERIODO = [];
+  gfAsignaciones = {};
+  wlItems        = [];
+
+  // Limpiar IndexedDB
+  await openDB();
+  for (const store of ['movimientos', 'cc_movimientos', 'deudas']) {
+    await new Promise((res, rej) => {
+      const tx = _db.transaction(store, 'readwrite');
+      tx.objectStore(store).clear();
+      tx.oncomplete = res;
+      tx.onerror    = e => rej(e.target.error);
+    });
+  }
+  await idbPut('config', 'CUPOS', {});
+  await idbPut('config', 'CORTES_PERIODO', []);
+
+  // Limpiar localStorage (asignaciones GF y wishlist)
+  await gfSaveAsignaciones();
+  wlSave();
+  localStorage.removeItem(LAST_EXPORT_KEY);
+  updateLastExportLabel();
+  renderGastosFijos._loaded = false;
+
+  // Re-renderizar
+  computeDerivedData();
+  renderHeader();
+  renderDeudas();
+  renderBCH();
+  renderSAN();
+  if (document.querySelector('[data-view="resumen"].active')) resRender();
+
+  showToast('✓ Datos borrados');
 }
 
 // ── Importar JSON ────────────────────────────────────────────────────────────
@@ -260,6 +347,7 @@ async function importJSON(file) {
       gfAsignaciones = data.GF_ASIGNACIONES;
       await gfSaveAsignaciones();
     }
+    renderGastosFijos._loaded = false; // forzar recarga en próxima visita
 
     // Restaurar lista de deseos
     if (Array.isArray(data.WL_ITEMS)) {
@@ -274,6 +362,7 @@ async function importJSON(file) {
     renderBCH();
     renderSAN();
     if (document.querySelector('[data-view="resumen"].active')) resRender();
+    if (document.querySelector('[data-view="fijos"].active')) renderGastosFijos();
 
     showToast(`✓ Importado: ${MOVIMIENTOS.length} movimientos TC, ${CC_MOVIMIENTOS.length} CC`);
 
@@ -318,8 +407,10 @@ window.addEventListener('appinstalled', () => {
 
 // ── Event listeners ───────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  updateLastExportLabel();
   document.getElementById('btn-save')?.addEventListener('click', saveToServer);
   document.getElementById('btn-export')?.addEventListener('click', exportJSON);
+  document.getElementById('btn-reset')?.addEventListener('click', resetAll);
 
   document.getElementById('import-file')?.addEventListener('change', async e => {
     const file = e.target.files[0];

@@ -16,11 +16,13 @@ function resBuildTabs() {
   }
 
   const allMovPeriods = new Set(efAllMovs().map(m => m.periodo));
+  const periodoHoy = typeof fechaToPeriodoUC === 'function' ? fechaToPeriodoUC(new Date().toISOString().split('T')[0]) : null;
   const container = document.getElementById('res-period-tabs');
   container.innerHTML = periods.map(p => {
     const hasDatos = allMovPeriods.has(p);
     const isActive = resFiltros.has(p);
-    return `<button class="ef-period-tab ${isActive ? 'active' : ''} ${!hasDatos ? 'future' : ''}" data-period="${p}">
+    const isCurrent = p === periodoHoy;
+    return `<button class="ef-period-tab ${isActive ? 'active' : ''} ${!hasDatos ? 'future' : ''} ${isCurrent ? 'current' : ''}" data-period="${p}">
       <span class="tab-label">${efPeriodLabel(p, true)}</span>
       <span class="tab-dot"></span>
     </button>`;
@@ -84,6 +86,8 @@ function resRender() {
   resRenderBreakdown(bycat, cats, totalEgr);
   resRenderComparativo(all);
   resRenderPendientes(all);
+  resRenderGFCard();
+  resRenderProyeccion();
 
   const el = document.getElementById('header-date-resumen');
   if (el) el.textContent = new Date().toLocaleDateString('es-CL', { day:'numeric', month:'long', year:'numeric' }).toUpperCase();
@@ -285,4 +289,100 @@ function resSaldar(movId) {
       }
     });
   }, 0);
+}
+
+function resRenderGFCard() {
+  const card = document.getElementById('res-gf-card');
+  if (!card) return;
+
+  const hoy = new Date().toISOString().split('T')[0];
+  const periodoHoy = typeof fechaToPeriodoUC === 'function' ? fechaToPeriodoUC(hoy) : null;
+  const soloHoy = resFiltros && resFiltros.size === 1 && resFiltros.has(periodoHoy);
+  if (!soloHoy || !periodoHoy) { card.style.display = 'none'; return; }
+
+  if (typeof GASTOS_FIJOS === 'undefined' || typeof gfAsignaciones === 'undefined') {
+    card.style.display = 'none'; return;
+  }
+
+  let pendienteMonto = 0, pendienteCount = 0, totalCount = 0;
+  GASTOS_FIJOS.forEach(gf => {
+    if (!gf.monto) return;
+    if (gfIsIgnored(periodoHoy, gf.id)) return;
+    totalCount++;
+    const confirmed = (gfAsignaciones[gfKey(periodoHoy, gf.id)] || []).length > 0;
+    if (!confirmed) { pendienteMonto += gf.monto; pendienteCount++; }
+  });
+
+  const confirmados = totalCount - pendienteCount;
+  const pct = totalCount > 0 ? Math.round((confirmados / totalCount) * 100) : 0;
+  const todoOk = pendienteCount === 0;
+
+  card.style.display = '';
+  card.innerHTML = `
+    <div class="res-gf-header">
+      <span class="res-gf-title">Gastos fijos</span>
+      <span class="res-gf-badge ${todoOk ? 'ok' : ''}">${confirmados}/${totalCount} verificados</span>
+    </div>
+    <div class="res-gf-bar-wrap">
+      <div class="res-gf-bar-fill" style="width:${pct}%"></div>
+    </div>
+    ${!todoOk ? `<div class="res-gf-pendiente">
+      <span class="res-gf-pendiente-label">${pendienteCount} pendiente${pendienteCount > 1 ? 's' : ''}</span>
+      <span class="res-gf-pendiente-monto">$${Math.round(pendienteMonto).toLocaleString('es-CL')}</span>
+    </div>` : `<div class="res-gf-pendiente ok"><span class="res-gf-pendiente-label">Todo verificado ✓</span></div>`}
+  `;
+}
+
+function resRenderProyeccion() {
+  const card = document.getElementById('res-proyeccion-card');
+  if (!card) return;
+
+  const hoy = new Date().toISOString().split('T')[0];
+  const periodoHoy = typeof fechaToPeriodoUC === 'function' ? fechaToPeriodoUC(hoy) : null;
+  const soloHoy = resFiltros && resFiltros.size === 1 && resFiltros.has(periodoHoy);
+  if (!soloHoy || !periodoHoy) { card.style.display = 'none'; return; }
+
+  // ── Próximas facturaciones TC (BCH + SAN) ────────────────────────────────
+  const cardBCH = computeCard('TC Banco de Chile');
+  const cardSAN = computeCard('TC Santander');
+  const totalTC = Math.max(0, cardBCH.nextGasto) + Math.max(0, cardSAN.nextGasto);
+
+  // ── Deseos del período actual ─────────────────────────────────────────────
+  const totalDeseos = (typeof wlItems !== 'undefined' ? wlItems : [])
+    .filter(i => i.periodo === periodoHoy)
+    .reduce((s, i) => s + (i.monto || 0), 0);
+
+  // ── GF total período siguiente ────────────────────────────────────────────
+  const periodoSig = (() => {
+    const idx = UC_CORTES.findIndex(c => c.id === periodoHoy);
+    return idx >= 0 && idx < UC_CORTES.length - 1 ? UC_CORTES[idx + 1].id : null;
+  })();
+
+  let gfTotalSiguiente = 0;
+  if (typeof GASTOS_FIJOS !== 'undefined' && periodoSig) {
+    GASTOS_FIJOS.forEach(gf => {
+      if (!gf.monto || gfIsIgnored(periodoHoy, gf.id)) return;
+      gfTotalSiguiente += gf.monto;
+    });
+  }
+
+  const fila = (label, valor, sub) => `
+    <div class="res-proy-row">
+      <div class="res-proy-label">${label}</div>
+      <div style="text-align:right;">
+        <div class="res-proy-valor">$${Math.round(valor).toLocaleString('es-CL')}</div>
+        ${sub ? `<div class="res-proy-sub">${sub}</div>` : ''}
+      </div>
+    </div>`;
+
+  card.style.display = '';
+  card.innerHTML = `
+    <div class="res-proy-title">Proyección</div>
+    ${fila('Próx. facturación TC', totalTC,
+      [cardBCH.nextGasto > 0 ? `BCH $${Math.round(cardBCH.nextGasto).toLocaleString('es-CL')}` : '',
+       cardSAN.nextGasto > 0 ? `SAN $${Math.round(cardSAN.nextGasto).toLocaleString('es-CL')}` : '']
+       .filter(Boolean).join(' · '))}
+    ${fila('Deseos ' + efPeriodLabel(periodoHoy, true), totalDeseos, '')}
+    ${periodoSig ? fila('GF total (siguiente)', gfTotalSiguiente, efPeriodLabel(periodoSig, true)) : ''}
+  `;
 }

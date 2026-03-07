@@ -111,6 +111,9 @@ function computeDerivedData() {
         categoria: m.categoria,
         periodo: m.periodo,
         fecha: (() => {
+          // Pago único: usar siempre la fecha real de transacción
+          if (m.cuotas_totales === 1) return m.fecha_transaccion;
+          // Cuota: si la fecha de compra cae en el período, usarla; si no, usar fecha de corte
           const corte = UC_CORTES.find(c => c.id === m.periodo);
           const esReal = corte &&
             m.fecha_transaccion >= corte.desde &&

@@ -58,13 +58,13 @@ const GASTOS_FIJOS = [
 // almacenamiento de asignaciones
 async function gfLoadAsignaciones() {
   try {
-    const r = await window.storage.get(GF_STORAGE_KEY);
-    gfAsignaciones = r ? JSON.parse(r.value) : {};
+    const raw = localStorage.getItem(GF_STORAGE_KEY);
+    gfAsignaciones = raw ? JSON.parse(raw) : {};
   } catch(_) { gfAsignaciones = {}; }
 }
 
 async function gfSaveAsignaciones() {
-  try { await window.storage.set(GF_STORAGE_KEY, JSON.stringify(gfAsignaciones)); } catch(_) {}
+  try { localStorage.setItem(GF_STORAGE_KEY, JSON.stringify(gfAsignaciones)); } catch(_) {}
 }
 
 function gfKey(periodo, gfId) { return `${periodo}:${gfId}`; }
@@ -100,8 +100,9 @@ function buildGfPeriodTabs() {
   if (!container) return;
   const periods = efGetPeriods();
   const periodoActivo = UC_CORTES[gfPeriodoIdx] ? UC_CORTES[gfPeriodoIdx].id : null;
+  const periodoHoy = typeof fechaToPeriodoUC === 'function' ? fechaToPeriodoUC(new Date().toISOString().split('T')[0]) : null;
   container.innerHTML = periods.map(p => `
-    <button class="ef-period-tab ${p === periodoActivo ? 'active' : ''}" data-period="${p}">
+    <button class="ef-period-tab ${p === periodoActivo ? 'active' : ''} ${p === periodoHoy ? 'current' : ''}" data-period="${p}">
       <span class="tab-label">${efPeriodLabel(p, true)}</span>
       <span class="tab-dot"></span>
     </button>
@@ -154,9 +155,13 @@ function gfRenderPicker(gfId, query) {
   );
 
   // Filtro por búsqueda
-  const q = (query || '').toLowerCase().trim();
+  const q = normalizeQ(query);
   const filtrar = arr => q
-    ? arr.filter(m => (m.nombre_descriptivo || '').toLowerCase().includes(q))
+    ? arr.filter(m =>
+        normalizeQ(m.nombre_descriptivo).includes(q) ||
+        normalizeQ(m.nombre_original).includes(q) ||
+        normalizeQ(m.id).includes(q)
+      )
     : arr;
 
   const fmtF = (f, p) => {

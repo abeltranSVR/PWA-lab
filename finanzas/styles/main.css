@@ -684,6 +684,21 @@ body::before {
   background: transparent;
   border: 1px solid var(--border);
 }
+.ef-period-tab.current {
+  border: 1px solid #c8922a;
+  border-radius: 6px;
+  padding: 5px 7px;
+}
+.ef-period-tab.current .tab-label {
+  color: var(--text-secondary);
+}
+.ef-period-tab.current .tab-dot {
+  background: var(--border);
+}
+.ef-period-tab.active.current .tab-dot {
+  background: var(--accent);
+  box-shadow: 0 0 4px rgba(26,122,74,0.4);
+}
 
 /* ── Resumen view styles ─────────────────────────────────────────────── */
 .res-period-tabs-wrap {
@@ -1412,6 +1427,9 @@ body::before {
 .sync-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
 .sync-btn.primary { border-color: var(--accent); color: var(--accent); }
 .sync-btn.primary:hover { background: var(--accent); color: #fff; }
+.sync-btn.danger { border-color: #c0392b44; color: #c0392b; }
+.sync-btn.danger:hover { background: #c0392b; color: #fff; }
+.sync-last-export { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
 /* Empujar el contenido cuando sync-bar está visible */
 body.sync-visible { padding-top: 37px; }
 
@@ -1648,5 +1666,135 @@ body.sync-visible { padding-top: 37px; }
   align-items: center;
   justify-content: center;
   border-radius: 6px;
+}
+
+/* ── Gastos fijos card (resumen) ─────────────────────────────────────────── */
+.res-gf-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin: 0 16px 12px;
+}
+.res-gf-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.res-gf-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.res-gf-badge {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+.res-gf-badge.ok { color: var(--accent); }
+.res-gf-bar-wrap {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.res-gf-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+.res-gf-pendiente {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.res-gf-pendiente.ok { justify-content: flex-start; }
+.res-gf-pendiente-label { font-size: 12px; color: var(--text-muted); }
+.res-gf-pendiente.ok .res-gf-pendiente-label { color: var(--accent); }
+.res-gf-pendiente-monto {
+  font-size: 13px;
+  font-family: var(--font-mono);
+  color: var(--expense);
+}
+
+/* ── Proyección mes actual (resumen) ─────────────────────────────────────── */
+.res-proyeccion-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin: 0 16px 16px;
+}
+.res-proy-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.res-proy-section {
+  margin-bottom: 10px;
+}
+.res-proy-section:last-child { margin-bottom: 0; }
+.res-proy-section-title {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.res-proy-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 0;
+}
+.res-proy-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.res-proy-valor {
+  font-size: 13px;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.res-proy-valor.negativo { color: var(--expense); }
+.res-proy-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 8px 0;
+}
+.res-proy-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding-top: 2px;
+}
+.res-proy-total-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.res-proy-total-valor {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--expense);
+  white-space: nowrap;
+}
+.res-proy-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 1px;
 }
 .cortes-del-btn:hover { color: #e55; }

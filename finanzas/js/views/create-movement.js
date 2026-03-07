@@ -25,9 +25,9 @@ function cmShowSuggestions(q) {
   if (!box) return;
   if (!q) { box.style.display = 'none'; return; }
 
-  const ql = q.toLowerCase();
+  const ql = normalizeQ(q);
   const matches = cmGetNombresUnicos()
-    .filter(m => m.nombre_descriptivo.toLowerCase().includes(ql))
+    .filter(m => normalizeQ(m.nombre_descriptivo).includes(ql))
     .slice(0, 8);
 
   if (!matches.length) { box.style.display = 'none'; return; }

@@ -2,6 +2,11 @@
 // ║  efectivo.js — View Movimientos: render, filtros, búsqueda, period tabs    ║
 // ╚══════════════════════════════════════════════════════════════════════════════╝
 
+// ── Normalización de texto para búsqueda (sin tildes, sin mayúsculas) ─────────
+function normalizeQ(str) {
+  return (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
 // ── Period tabs (shared builder) ──────────────────────────────────────────────
 function buildPeriodTabs(containerId, activeRef, onSelect) {
   const periods = efGetPeriods();
@@ -41,11 +46,13 @@ function buildEfPeriodTabs() {
   }
   const container = document.getElementById('ef-period-tabs');
   const allMovPeriods = new Set(efAllMovs().map(m => m.periodo));
+  const periodoHoy = typeof fechaToPeriodoUC === 'function' ? fechaToPeriodoUC(new Date().toISOString().split('T')[0]) : null;
   container.innerHTML = periods.map(p => {
     const hasDatos = allMovPeriods.has(p);
     const isFuture = !hasDatos;
     const isActive = efPeriodosSeleccionados.has(p);
-    return `<button class="ef-period-tab ${isActive ? 'active' : ''} ${isFuture ? 'future' : ''}" data-period="${p}">
+    const isCurrent = p === periodoHoy;
+    return `<button class="ef-period-tab ${isActive ? 'active' : ''} ${isFuture ? 'future' : ''} ${isCurrent ? 'current' : ''}" data-period="${p}">
       <span class="tab-label">${efPeriodLabel(p, true)}</span>
       <span class="tab-dot"></span>
     </button>`;
@@ -74,15 +81,15 @@ let efFilterHasta = '';
 let efFilterCats = new Set(); // vacío = todas
 let efFilterOrigins = new Set(); // vacío = todos
 
-function fmtDateShort(dateStr, periodo) {
+function fmtDateShort(dateStr, periodo, esCuota) {
   const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  const [, mo, d] = dateStr.split('-');
-  // Si la fecha es la fecha de corte del período, mostrar solo el mes (es referencial)
-  const corte = periodo ? UC_CORTES.find(c => c.id === periodo) : null;
-  const esFechaCorte = corte && dateStr === corte.hasta;
-  return esFechaCorte
-    ? months[parseInt(mo) - 1]
-    : `${parseInt(d)} ${months[parseInt(mo) - 1]}`;
+  // Cuotas: mostrar el mes del período, no la fecha de la compra original
+  if (esCuota && periodo) {
+    const mp = parseInt(periodo.slice(4, 6)) - 1;
+    return months[mp];
+  }
+  const [, mo, d] = (dateStr || '').split('-');
+  return mo ? `${parseInt(d)} ${months[parseInt(mo) - 1]}` : '';
 }
 
 // ── Render movimientos ────────────────────────────────────────────────────────
@@ -90,13 +97,15 @@ function efRenderMovimientos(movs) {
   const container = document.getElementById('ef-movimientos-container');
 
   // Apply search filter
-  const query = efSearchQuery.trim().toLowerCase();
+  const query = normalizeQ(efSearchQuery);
   if (query) {
     movs = movs.filter(m =>
-      (m.descripcion || m.nombre_descriptivo || '').toLowerCase().includes(query) ||
-      (m.categoria || '').toLowerCase().includes(query) ||
-      (m.medio_pago || '').toLowerCase().includes(query) ||
-      (m.nota || '').toLowerCase().includes(query)
+      normalizeQ(m.descripcion || m.nombre_descriptivo).includes(query) ||
+      normalizeQ(m.nombre_original).includes(query) ||
+      normalizeQ(m.id).includes(query) ||
+      normalizeQ(m.categoria).includes(query) ||
+      normalizeQ(m.medio_pago).includes(query) ||
+      normalizeQ(m.nota).includes(query)
     );
   }
 
@@ -178,11 +187,35 @@ function efRenderMovimientos(movs) {
   });
 
   container.querySelectorAll('[data-delete]').forEach(btn => {
-    btn.addEventListener('click', e => {
+    btn.addEventListener('click', async e => {
       e.stopPropagation();
-      EF_MOVS = EF_MOVS.filter(m => m.id !== btn.dataset.delete);
-      efSave(EF_MOVS);
-      efRender();
+      if (!confirm('¿Eliminar este movimiento? Esta acción no se puede deshacer.')) return;
+      const id = btn.dataset.delete;
+      const fuente = btn.dataset.fuente;
+      if (fuente === 'ef') {
+        EF_MOVS = EF_MOVS.filter(m => m.id !== id);
+        efSave(EF_MOVS);
+      } else if (fuente === 'tc') {
+        MOVIMIENTOS = MOVIMIENTOS.filter(m => m.id !== id);
+        await idbSaveMovimiento({ id, _deleted: true }); // marca; rebuild desde memoria
+        await openDB();
+        await new Promise((res, rej) => {
+          const tx = _db.transaction('movimientos', 'readwrite');
+          tx.objectStore('movimientos').delete(id);
+          tx.oncomplete = res; tx.onerror = e => rej(e.target.error);
+        });
+      } else if (fuente === 'cc') {
+        CC_MOVIMIENTOS = CC_MOVIMIENTOS.filter(m => m.id !== id);
+        await openDB();
+        await new Promise((res, rej) => {
+          const tx = _db.transaction('cc_movimientos', 'readwrite');
+          tx.objectStore('cc_movimientos').delete(id);
+          tx.oncomplete = res; tx.onerror = e => rej(e.target.error);
+        });
+      }
+      computeDerivedData();
+      efRenderMovimientos(efMovsForPeriodos(efPeriodosSeleccionados));
+      renderBCH(); renderSAN();
     });
   });
 
@@ -233,16 +266,16 @@ function efMovRow(m) {
         <div class="ef-mov-info">
           <div class="ef-mov-desc">${desc}</div>
           <div class="ef-mov-meta">
-            <span class="ef-mov-date">${fmtDateShort(m.fecha, m.periodo)}</span>
+            <span class="ef-mov-date">${fmtDateShort(m.fecha, m.periodo, m.cuotas_totales > 1)}</span>
             ${medio}${cuotaPill}${nota}
           </div>
         </div>
         <button class="ef-mov-edit" data-edit="${m.id}" title="Editar">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
-        ${isEf ? `<button class="ef-mov-delete" data-delete="${m.id}" title="Eliminar">
+        <button class="ef-mov-delete" data-delete="${m.id}" data-fuente="${m.fuente}" title="Eliminar">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-        </button>` : ''}
+        </button>
         <span class="ef-mov-amount ${m.tipo}">${m.tipo === 'egreso' ? '-' : '+'}$${m.monto.toLocaleString('es-CL')}</span>
       </div>
       ${detailRows.length ? `<div class="ef-mov-detail"><div class="ef-mov-detail-grid">${detailHTML}</div></div>` : ''}

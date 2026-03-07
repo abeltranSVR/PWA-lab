@@ -56,11 +56,13 @@ function srConfirm() {
 // ── Filtrar movimientos ───────────────────────────────────────────────────────
 function srFilterMovs() {
   let movs = efAllMovs();
-  const q = srQuery.trim().toLowerCase();
+  const q = normalizeQ(srQuery);
   if (q) movs = movs.filter(m =>
-    (m.descripcion || m.nombre_descriptivo || '').toLowerCase().includes(q) ||
-    (m.categoria   || '').toLowerCase().includes(q) ||
-    (m.medio_pago  || '').toLowerCase().includes(q)
+    normalizeQ(m.descripcion || m.nombre_descriptivo).includes(q) ||
+    normalizeQ(m.nombre_original).includes(q) ||
+    normalizeQ(m.id).includes(q) ||
+    normalizeQ(m.categoria).includes(q) ||
+    normalizeQ(m.medio_pago).includes(q)
   );
   if (srFilterDesde)       movs = movs.filter(m => m.fecha >= srFilterDesde);
   if (srFilterHasta)       movs = movs.filter(m => m.fecha <= srFilterHasta);
@@ -132,11 +134,9 @@ function srRender() {
 }
 
 function srSelectRow(m) {
-  const desc   = m.descripcion || m.nombre_descriptivo || '';
-  const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  const [,mo,d] = (m.fecha || '').split('-');
-  const fecha  = mo ? `${parseInt(d)} ${months[parseInt(mo)-1]}` : '';
-  const sel    = srSeleccionados.has(m.id);
+  const desc  = m.descripcion || m.nombre_descriptivo || '';
+  const fecha = fmtDateShort(m.fecha, m.periodo, m.cuotas_totales > 1);
+  const sel   = srSeleccionados.has(m.id);
   return `
     <div class="sr-select-row ${sel ? 'sr-selected' : ''}" data-id="${m.id}">
       <div class="sr-checkbox ${sel ? 'checked' : ''}"></div>

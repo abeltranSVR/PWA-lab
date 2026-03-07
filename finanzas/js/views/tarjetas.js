@@ -4,6 +4,43 @@
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 const CARD_DATES = { 'TC Banco de Chile': { curr: null, next: null }, 'TC Santander': { curr: null, next: null } };
+let tcPeriodoSeleccionado = null; // null = período activo (default)
+
+function buildTcPeriodTabs() {
+  const container = document.getElementById('tc-period-tabs');
+  if (!container) return;
+  const periods = efGetPeriods().filter(p => {
+    // Solo períodos con datos TC
+    return MOVIMIENTOS.some(m => m.periodo === p &&
+      (m.medio_pago === 'TC Banco de Chile' || m.medio_pago === 'TC Santander'));
+  });
+
+  const activoPeriodo = UC_CORTES[UC_CORTES.length - 1].id;
+  if (!tcPeriodoSeleccionado) tcPeriodoSeleccionado = activoPeriodo;
+
+  const periodoHoy = typeof fechaToPeriodoUC === 'function'
+    ? fechaToPeriodoUC(new Date().toISOString().split('T')[0]) : null;
+
+  container.innerHTML = periods.map(p => {
+    const isCurrent = p === periodoHoy;
+    const isActive  = p === tcPeriodoSeleccionado;
+    return `<button class="ef-period-tab ${isActive ? 'active' : ''} ${isCurrent ? 'current' : ''}" data-tcperiod="${p}">
+      <span class="tab-label">${efPeriodLabel(p, true)}</span>
+      <span class="tab-dot"></span>
+    </button>`;
+  }).join('');
+
+  container.querySelectorAll('[data-tcperiod]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      tcPeriodoSeleccionado = btn.dataset.tcperiod;
+      // Resetear fechas manuales para que se recalculen con el nuevo período
+      CARD_DATES['TC Banco de Chile']._manual = false;
+      CARD_DATES['TC Santander']._manual = false;
+      buildTcPeriodTabs();
+      renderBCH(); renderSAN();
+    });
+  });
+}
 
 function periodFromDate(dateStr) { return dateStr.slice(0,4) + dateStr.slice(5,7); }
 
@@ -24,9 +61,9 @@ function computeCard(banco) {
 
   const periodos = [...new Set(todosMovs.map(r => r.periodo))].sort();
 
-  // Usar siempre el último período definido en UC_CORTES como período actual
+  // Usar período seleccionado en tabs (o el activo por defecto)
   if (!CARD_DATES[banco]._manual) {
-    const currPeriodo = UC_CORTES[UC_CORTES.length - 1].id;
+    const currPeriodo = tcPeriodoSeleccionado || UC_CORTES[UC_CORTES.length - 1].id;
     CARD_DATES[banco].curr = `${currPeriodo.slice(0,4)}-${currPeriodo.slice(4,6)}-05`;
     const np = nextPeriod(currPeriodo);
     CARD_DATES[banco].next = `${np.slice(0,4)}-${np.slice(4,6)}-05`;
@@ -35,22 +72,16 @@ function computeCard(banco) {
   const curr = periodFromDate(CARD_DATES[banco].curr);
   const next = periodFromDate(CARD_DATES[banco].next);
 
-  // Período anterior: el inmediatamente antes de curr en UC_CORTES
-  const currIdx = UC_CORTES.findIndex(c => c.id === curr);
-  const prev = currIdx > 0 ? UC_CORTES[currIdx - 1].id : null;
-
   const currMovs = todosMovs.filter(r => r.periodo === curr);
-  const prevMovs = prev ? todosMovs.filter(r => r.periodo === prev) : [];
   const nextMovs = todosMovs.filter(r => r.periodo === next);
 
-  const currGastoSolo  = currMovs.filter(r => r.valor_cuota > 0).reduce((s,r) => s + r.valor_cuota, 0);
-  const prevGasto      = prevMovs.filter(r => r.valor_cuota > 0).reduce((s,r) => s + r.valor_cuota, 0);
-  const prevPagado     = prevMovs.filter(r => r.valor_cuota < 0).reduce((s,r) => s + r.valor_cuota, 0);
-  const currPagado     = currMovs.filter(r => r.valor_cuota < 0).reduce((s,r) => s + r.valor_cuota, 0);
-  const nextPagado     = nextMovs.filter(r => r.valor_cuota < 0).reduce((s,r) => s + r.valor_cuota, 0);
+  const gastosHastaCurr = todosMovs.filter(r => r.periodo <= curr && r.valor_cuota > 0).reduce((s,r) => s + r.valor_cuota, 0);
+  const pagosHastaPrev  = todosMovs.filter(r => r.periodo <  curr && r.valor_cuota < 0).reduce((s,r) => s + r.valor_cuota, 0);
+  const currPagado      = currMovs.filter(r => r.valor_cuota < 0).reduce((s,r) => s + r.valor_cuota, 0);
+  const nextPagado      = nextMovs.filter(r => r.valor_cuota < 0).reduce((s,r) => s + r.valor_cuota, 0);
 
-  // Cuota bruta del período actual = gastos propios + arrastre de anterior
-  const currGasto = currGastoSolo + prevGasto + prevPagado; // prevPagado ya es negativo
+  // Saldo del período actual = gastos acumulados hasta curr − todos los pagos hasta curr inclusive
+  const currGasto = gastosHastaCurr + pagosHastaPrev + currPagado;
   // Próxima facturación = suma de todos los movimientos hasta el período siguiente inclusive
   const nextGasto = todosMovs.filter(r => r.periodo <= next).reduce((s,r) => s + r.valor_cuota, 0);
 
@@ -66,6 +97,7 @@ const PENCIL = `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke
 
 function renderBCH() {
   const banco = 'TC Banco de Chile';
+  buildTcPeriodTabs();
 
   const data = computeCard(banco);
   const pct = Math.max(0, Math.round((data.utilizado / data.cupoTotal) * 100));

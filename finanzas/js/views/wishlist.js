@@ -29,14 +29,17 @@ function wlBuildTabs() {
   if (!container) return;
   const periods = typeof efGetPeriods === 'function' ? efGetPeriods() : [];
 
+  const periodoHoy = typeof fechaToPeriodoUC === 'function' ? fechaToPeriodoUC(new Date().toISOString().split('T')[0]) : null;
   const tabs = [{ id: 'todos', label: 'Todos' },
     ...periods.map(p => ({ id: p, label: efPeriodLabel(p, true) }))];
 
-  container.innerHTML = tabs.map(t => `
-    <button class="ef-period-tab ${t.id === wlPeriodoFiltro ? 'active' : ''}" data-wlperiod="${t.id}">
+  container.innerHTML = tabs.map(t => {
+    const isCurrent = t.id !== 'todos' && t.id === periodoHoy;
+    return `<button class="ef-period-tab ${t.id === wlPeriodoFiltro ? 'active' : ''} ${isCurrent ? 'current' : ''}" data-wlperiod="${t.id}">
       <span class="tab-label">${t.label}</span>
       <span class="tab-dot"></span>
-    </button>`).join('');
+    </button>`;
+  }).join('');
 
   container.querySelectorAll('[data-wlperiod]').forEach(btn => {
     btn.addEventListener('click', () => {
